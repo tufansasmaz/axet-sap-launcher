@@ -188,6 +188,7 @@ export const MAIN_EN = {
   "rfcBridge.spawnFailed": "The RFC bridge process could not be started ({pythonPath}): {detail}",
   "rfcBridge.didNotStart": "The RFC bridge did not come up on port {port}. {detail}",
   "rfcBridge.started": "RFC bridge started (http://127.0.0.1:{port}).",
+  "rfcBridge.portBusy": "The RFC bridge could not start: a process outside NTT Studio holds port {port}. Close it (or restart the computer) and connect again.",
 
   // --- sapRouter.ts ---
   "sapRouter.unexpectedResponse": "SAProuter did not accept the route (response: {type}).",

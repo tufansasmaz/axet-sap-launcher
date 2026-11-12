@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { FolderOpen, PanelRightClose, X } from "lucide-react";
+import { ExternalLink, FolderOpen, PanelRightClose, X } from "lucide-react";
 import type { FsEntry } from "../../app-electron/shared/types";
 import FileExplorer from "./FileExplorer";
 import FileViewer from "./FileViewer";
@@ -56,6 +56,18 @@ export default function ChatFilesPanel({ rootDir, rootLabel, onClose, active }: 
             {t("chatFiles.title")}
           </span>
         </div>
+        <div className="flex shrink-0 items-center gap-0.5">
+        {/* Klasörü işletim sisteminin dosya gezgininde aç (kararlilik-2 R7).
+            fs:openExternal yolu isPathAllowed'dan geçiyor. */}
+        <button
+          type="button"
+          onClick={() => void window.api.openExternal(rootDir)}
+          title={t("chatFiles.openInExplorer")}
+          aria-label={t("chatFiles.openInExplorer")}
+          className="cursor-pointer rounded p-1 text-slate-500 transition hover:bg-hover hover:text-slate-200"
+        >
+          <ExternalLink size={13} />
+        </button>
         <button
           onClick={onClose}
           title={t("chatFiles.hide")}
@@ -63,6 +75,7 @@ export default function ChatFilesPanel({ rootDir, rootLabel, onClose, active }: 
         >
           <PanelRightClose size={13} />
         </button>
+        </div>
       </div>
 
       {/* Dosya açıkken ağaç üst yarıya çekiliyor: ikisi de aynı anda görünür

@@ -295,6 +295,125 @@ describe("mesaj kuyruğu", () => {
     expect(box.value).toBe("ikinci");
   });
 
+  // kararlilik-2 R8d: "Mesaj sıraya ekleme var ama anında gönderme yok."
+  // Güvenli yol, kullanıcının Durdur'u ile aynı: tur kesiliyor (axet-code süreci
+  // öldürülüyor; yarım kalan araç çağrısı varsa sonraki tur yeni oturum açıyor),
+  // sıradaki kutuya DÖNMÜYOR, hemen gidiyor.
+  it("Şimdi gönder: tur kesilir, sıradaki kutuya dönmeden hemen gider", async () => {
+    const { calls, send } = setupSend();
+    const cancel = vi.fn(() => Promise.resolve());
+    const api = (window as unknown as { api: Record<string, unknown> }).api;
+    (window as unknown as { api: unknown }).api = new Proxy(api, {
+      get: (target, k: string) => (k === "cancelChatMessage" ? cancel : (target as Record<string, unknown>)[k])
+    });
+    const box = await openChat();
+    type(box, "birinci");
+    await wait(0);
+    type(box, "ikinci");
+
+    fireEvent.click(screen.getByTitle("Şimdi gönder (mevcut turu durdurur)"));
+    expect(cancel).toHaveBeenCalledWith(send.mock.calls[0][0]);
+
+    await act(async () => calls[0].resolve({ ok: false, cancelled: true, text: "" }));
+    await wait(0);
+    expect(send).toHaveBeenCalledTimes(2);
+    expect(calls[1].prompt).toContain("ikinci");
+    expect(box.value).toBe("");
+    expect(screen.queryByTestId("chat-queued")).toBeNull();
+  });
+
+  // kararlilik-2 R4: portal 429 ile biten tur, artan beklemeyle kendiliğinden
+  // yeniden deneniyor (Tur 9 ajan kuralları), iptal edilebiliyor.
+  const RATE = 'POST "https://portal/v1/messages": 429 Too Many Requests {"message":"Too many tokens, please wait before trying again."}';
+
+  it("429 ile biten tur bekleme sonrası kendiliğinden yeniden gönderiliyor", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const { calls, send } = setupSend();
+      const reset = vi.fn(() => Promise.resolve(true));
+      const api = (window as unknown as { api: Record<string, unknown> }).api;
+      (window as unknown as { api: unknown }).api = new Proxy(api, {
+        get: (target, k: string) => (k === "resetChatHistory" ? reset : (target as Record<string, unknown>)[k])
+      });
+      const box = await openChat();
+      type(box, "birinci");
+      await wait(0);
+      await act(async () => calls[0].resolve({ ok: false, error: RATE, text: "" }));
+      await wait(0);
+      expect(screen.getByTestId("chat-rate-retry").textContent).toContain("1/3. deneme");
+      expect(screen.getByTestId("chat-rate-retry").textContent).toMatch(/parçalara bölmek/);
+      await act(async () => {
+        vi.advanceTimersByTime(13_000);
+      });
+      await wait(0);
+      expect(send).toHaveBeenCalledTimes(2);
+      expect(calls[1].prompt).toContain("birinci");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("429 otomatik denemesi iptal edilebiliyor", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const { calls, send } = setupSend();
+      const box = await openChat();
+      type(box, "birinci");
+      await wait(0);
+      await act(async () => calls[0].resolve({ ok: false, error: RATE, text: "" }));
+      await wait(0);
+      fireEvent.click(screen.getByTitle("Otomatik denemeyi iptal et"));
+      expect(screen.queryByTestId("chat-rate-retry")).toBeNull();
+      await act(async () => {
+        vi.advanceTimersByTime(20_000);
+      });
+      await wait(0);
+      expect(send).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // kararlilik-2 R8c: belirti gelmeyen tur için kart; 30 dk'da kendiliğinden
+  // durdurma ve cevabın "takıldı" notuyla kalması.
+  function captureActivity() {
+    let emit: ((requestId: string, activity: unknown) => void) | null = null;
+    const cancel = vi.fn(() => Promise.resolve());
+    const api = (window as unknown as { api: Record<string, unknown> }).api;
+    (window as unknown as { api: unknown }).api = new Proxy(api, {
+      get: (target, k: string) => {
+        if (k === "onChatActivity")
+          return (cb: (requestId: string, activity: unknown) => void) => {
+            emit = cb;
+            return () => {};
+          };
+        if (k === "cancelChatMessage") return cancel;
+        return (target as Record<string, unknown>)[k];
+      }
+    });
+    return { cancel, emit: (requestId: string, activity: unknown) => emit?.(requestId, activity) };
+  }
+
+  it("takılan turda kart çıkıyor; 30 dk'da tur kendiliğinden durduruluyor ve notla kalıyor", async () => {
+    const { calls, send } = setupSend();
+    const act2 = captureActivity();
+    const box = await openChat();
+    type(box, "birinci");
+    await wait(0);
+    const requestId = send.mock.calls[0][0] as string;
+
+    await act(async () => act2.emit(requestId, { phase: "stalled", minutes: 5 }));
+    expect(screen.getByTestId("chat-stall").textContent).toMatch(/5 dk'dır ilerleme göstermiyor/);
+    expect(act2.cancel).not.toHaveBeenCalled();
+
+    await act(async () => act2.emit(requestId, { phase: "stalled", minutes: 30 }));
+    expect(act2.cancel).toHaveBeenCalledWith(requestId);
+
+    await act(async () => calls[0].resolve({ ok: false, cancelled: true, text: "" }));
+    await wait(0);
+    expect(screen.getByText(/30 dk ilerleme göstermediği için durduruldu/)).toBeTruthy();
+  });
+
   it("şeritten silinebiliyor ya da kutuya geri alınabiliyor", async () => {
     setupSend();
     const box = await openChat();

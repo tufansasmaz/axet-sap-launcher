@@ -195,6 +195,7 @@ export interface AxetApi {
   changesRevert: (workspaceId: string, checkpointId: string, paths: string[]) => Promise<RevertResult>;
   changesInitRepo: (workspaceId: string) => Promise<ChangesCommandResult>;
   changesOpenRoot: (workspaceId: string) => Promise<boolean>;
+  agentsFilesRoot: (workspaceId: string) => Promise<string | null>;
   onChangesChanged: (callback: (state: ChangesState) => void) => () => void;
   flowLoad: (workspaceId: string) => Promise<StoredFlowEvent[]>;
   flowSave: (workspaceId: string, events: StoredFlowEvent[]) => Promise<boolean>;
@@ -240,6 +241,7 @@ export interface AxetApi {
   readImageDataUrl: (filePath: string) => Promise<FsReadImageResult>;
   openInExplorer: (filePath: string) => Promise<void>;
   openExternal: (filePath: string) => Promise<void>;
+  openAttachment: (filePath: string) => Promise<boolean>;
   openExternalUrl: (url: string) => Promise<{ ok: boolean; error?: string }>;
   /** Panoya yazar. Tarayıcının Async Clipboard API'si düşerse yedek yol (bkz. CopyButton). */
   writeClipboard: (text: string) => Promise<{ ok: boolean; error?: string }>;

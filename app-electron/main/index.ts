@@ -74,9 +74,12 @@ import { createRulesStore } from "./memoryRulesStore";
 import { createMemoryService } from "./memoryService";
 import { browserSession, liveBrowserGuest } from "./browserLive";
 import type { ChangesFailure } from "../shared/changesTypes";
-import { stopAllRfcBridges } from "./rfcBridgeManager";
-import { stopAllReadonlyServers } from "./adtReadonlyServerManager";
-import { stopApprovalServer } from "./sapWrite/server";
+import { stopAllRfcBridges, stopRfcBridge } from "./rfcBridgeManager";
+import { stopAllReadonlyServers, stopReadonlyServer } from "./adtReadonlyServerManager";
+import { closeWriteSession, stopApprovalServer } from "./sapWrite/server";
+import { disconnectActiveSap } from "./sapDisconnect";
+import { createProcessErrorReporter } from "./processErrors";
+import { attachmentOpenAction } from "./attachmentOpen";
 import { setApprovalCandidateProvider } from "./sapWrite/approvalEvents";
 import { createPaneApprovalRouter } from "./sapWrite/paneApprovals";
 import { registerSapWriteIpc } from "./sapWrite/ipc";
@@ -162,14 +165,19 @@ if (!gotSingleInstanceLock) {
 
 // Beklenmeyen hatalar sessizce process'i çökertip kullanıcıyı "uygulama
 // birden kapandı" durumunda bırakmasın — en azından bir hata penceresi
-// göster, log'a yaz.
-process.on("uncaughtException", (err) => {
-  console.error("uncaughtException", err);
-  dialog.showErrorBox(mt("app.unexpectedErrorTitle"), err.stack ?? String(err));
+// göster, log'a yaz. Eskiden yalnız konsola yazılıyordu (paketlenmiş
+// uygulamada görünmez) ve her hata bir modal açıyordu (bkz. processErrors.ts).
+const processErrors = createProcessErrorReporter({
+  log: (event, fields) => {
+    console.error(event, fields);
+    appLog(event, fields);
+  },
+  showDialog: (title, body) => dialog.showErrorBox(title, body),
+  dialogTitle: () => mt("app.unexpectedErrorTitle"),
+  now: () => Date.now()
 });
-process.on("unhandledRejection", (reason) => {
-  console.error("unhandledRejection", reason);
-});
+process.on("uncaughtException", (err) => processErrors.uncaught(err));
+process.on("unhandledRejection", (reason) => processErrors.rejection(reason));
 
 app.disableHardwareAcceleration();
 
@@ -1431,8 +1439,17 @@ function registerIpc(): void {
   // Temizleme yalnızca SAP tarafı için var ve kullanıcı eylemi (başlık
   // çubuğundaki rozetin çarpısı). GUI tarafı kendi kendini yönetiyor:
   // oturum kapanınca ekran zaten `null` yayınlıyor.
+  // Kesme GERÇEK: o sistemin köprüsü, 8787'deki ADT sunucusu ve onay oturumu
+  // da kapanıyor (bkz. sapDisconnect.ts). Eskiden yalnız rozet siliniyordu.
   ipcMain.handle("context:clearSap", () => {
-    clearActiveSap();
+    disconnectActiveSap({
+      getSap: () => getActiveContext().sap,
+      clearSap: clearActiveSap,
+      stopRfcBridge,
+      stopAdtServer: stopReadonlyServer,
+      closeWriteSession,
+      log: appLog
+    });
     return getActiveContext();
   });
 
@@ -1948,6 +1965,21 @@ function registerIpc(): void {
     }
   });
 
+  // Ajanlar > Dosyalar (kararlilik-2 R7): ekibin proje klasörü. Klasör YALNIZ
+  // config'teki alan kaydından okunuyor (changes:openRoot ile aynı yol);
+  // renderer yol veremiyor. Okuma izni o köke veriliyor ki gezgin/önizleme
+  // (fs:* kanalları, isPathAllowed) proje klasörü dışındaki ekip köklerini de
+  // açabilsin — kullanıcının kendi tanımladığı alan klasörü.
+  ipcMain.handle("agents:filesRoot", (event, workspaceId: unknown): string | null => {
+    if (!fromMain(event)) return null;
+    const ws = changesWorkspace(workspaceId);
+    if (!ws) return null;
+    const cfg = loadConfig();
+    const info = boardWorkspaceInfo(cfg.terminalWorkspaces, cfg.axetWorkspaceDir, ws);
+    if (!info?.cwd?.trim()) return null;
+    return grantUserRoot(info.cwd);
+  });
+
   ipcMain.handle("changes:openRoot", async (event, workspaceId: unknown) => {
     if (!fromMain(event)) return false;
     const ws = changesWorkspace(workspaceId);
@@ -2360,6 +2392,22 @@ function registerIpc(): void {
     saveClipboardAttachment(fileName, base64Data)
   );
   ipcMain.handle("chatAttachments:preview", (_event, filePath: string) => readAttachmentPreview(filePath));
+  // Ek çipinden "dışarıda aç" (bkz. attachmentOpen.ts): kök dışındaki belge/
+  // görsel açılıyor, başka her şey yalnız klasörde gösteriliyor.
+  ipcMain.handle("chatAttachments:open", async (_event, filePath: unknown): Promise<boolean> => {
+    const exists = typeof filePath === "string" && path.isAbsolute(filePath) && existsSync(filePath);
+    const action = attachmentOpenAction(filePath, exists && isPathAllowed(loadConfig(), filePath as string), exists);
+    if (action === "none") return false;
+    try {
+      if (action === "reveal") {
+        shell.showItemInFolder(filePath as string);
+        return true;
+      }
+      return (await shell.openPath(filePath as string)) === "";
+    } catch {
+      return false;
+    }
+  });
 
   // Sohbet geçmişi kalıcılığı (Faz 2). Kaydetme senkron ve hızlı (tek JSON
   // dosyası + rename); renderer zaten debounce ediyor, burada ayrıca kuyruk

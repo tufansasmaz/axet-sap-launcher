@@ -61,7 +61,7 @@ describe("TitleBar", () => {
   it("bağlam yokken rozet ve temizle düğmesi yok", () => {
     mount({ sap: null, gui: null });
     expect(screen.queryByTitle("Sistemi göster · Müşteri › S4D")).toBeNull();
-    expect(screen.queryByTitle("Aktif bağlamı temizle (bağlantıyı kapatmaz)")).toBeNull();
+    expect(screen.queryByTitle("Bağlantıyı kes (bu sistemin ADT sunucusu ve RFC köprüsü kapanır)")).toBeNull();
   });
 
   it("rozet mono; sistem, istemci/kullanıcı ve ortam etiketi görünüyor; tıklayınca sistemi gösteriyor", () => {
@@ -77,7 +77,7 @@ describe("TitleBar", () => {
 
   it("temizle düğmesi gizli başlıyor, rozetin üstünde ve odakta görünüyor; tıklayınca bağlamı temizliyor", () => {
     const { onClearSap } = mount({ sap: SAP, gui: null });
-    const clear = screen.getByTitle("Aktif bağlamı temizle (bağlantıyı kapatmaz)");
+    const clear = screen.getByTitle("Bağlantıyı kes (bu sistemin ADT sunucusu ve RFC köprüsü kapanır)");
     for (const cls of ["opacity-0", "group-hover:opacity-100", "group-focus-within:opacity-100", "focus-visible:opacity-100"]) {
       expect(clear.className).toContain(cls);
     }

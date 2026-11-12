@@ -37,8 +37,23 @@ const STATE_KEY: Record<AgentState, TranslationKey> = {
   unknown: "agents.stateUnknown"
 };
 
+/**
+ * Kesin kaynakta (axet-code veritabanı) çalışıyor görünüp bu kadar süre
+ * ilerleme kaydetmeyen ajan "takılmış olabilir" (kararlilik-2 R8c). Tahmini
+ * kaynakta söylenmiyor: orada son etkinlik ekran yankısı, ilerleme değil.
+ */
+export const AGENT_STALL_MS = 20 * 60_000;
+
+function stalledMinutes(status: AgentStatus, now: number): number | null {
+  if (status.state !== "running" || status.source !== "exact" || status.lastActivity === null) return null;
+  const idle = now - status.lastActivity;
+  return idle >= AGENT_STALL_MS ? Math.floor(idle / 60_000) : null;
+}
+
 export function statusText(status: AgentStatus | undefined, now: number): { key: TranslationKey; params?: { min: number } } {
   if (!status) return { key: "agents.stateUnknown" };
+  const stalled = stalledMinutes(status, now);
+  if (stalled !== null) return { key: "agents.stateStalled", params: { min: stalled } };
   if (status.state === "idle" && status.lastActivity !== null) {
     const min = Math.floor((now - status.lastActivity) / 60_000);
     if (min >= 1) return { key: "agents.stateIdleFor", params: { min } };
@@ -77,9 +92,10 @@ export function cardStatus(pane: TerminalPane, status: AgentStatus | undefined, 
   return {
     key: text.key,
     ...(text.params ? { params: text.params } : {}),
-    tone: statusTone(status?.state),
+    tone: text.key === "agents.stateStalled" ? "warning" : statusTone(status?.state),
     estimated: (status?.source ?? "estimated") === "estimated",
-    restartable: status?.state === "finished"
+    // Takılmış görünen ajan da yeniden başlatılabilir (kararlilik-2 R8c).
+    restartable: status?.state === "finished" || text.key === "agents.stateStalled"
   };
 }
 

@@ -1,5 +1,8 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
+import ChatRateRetryStrip, { type ChatRateRetryState } from "./ChatRateRetryStrip";
+import { STALL_AUTO_STOP_MIN, stallAction } from "../lib/chatStall";
+import { btn } from "../ui/buttons";
 import {
   AlertTriangle,
   ArrowDown,
@@ -24,6 +27,7 @@ import {
   Package,
   Rocket,
   Search,
+  SendHorizontal,
   Server,
   Sparkles,
   UploadCloud,
@@ -160,6 +164,13 @@ interface Props {
   /** Sıradaki mesajı kutuya geri koyar / tamamen atar (bkz. `queued`). */
   onUnqueue: () => void;
   onDropQueued: () => void;
+  /** Mevcut turu kesip sıradakini hemen gönderir (kararlilik-2 R8d). */
+  onSendQueuedNow?: () => void;
+  /** 429 sonrası bekleyen otomatik deneme (kararlilik-2 R4). */
+  rateRetry?: ChatRateRetryState | null;
+  onCancelRateRetry?: () => void;
+  /** Takılmış turu durdurup yeniden dener (kararlilik-2 R8c). */
+  onStallRetry?: () => void;
   onAttachFiles: () => void;
   onFilesResolved: (paths: string[]) => void;
   onRemoveAttachment: (attachmentId: string) => void;
@@ -242,6 +253,10 @@ export default function ChatSessionPane({
   onUndoEdit,
   onUnqueue,
   onDropQueued,
+  onSendQueuedNow,
+  rateRetry = null,
+  onCancelRateRetry,
+  onStallRetry,
   onAttachFiles,
   onFilesResolved,
   onRemoveAttachment,
@@ -702,6 +717,25 @@ export default function ChatSessionPane({
                   steps={session.activitySteps}
                   stalledMinutes={session.stalledMinutes}
                 />
+                {stallAction(session.activity, session.stalledMinutes) !== "none" && (
+                  <div
+                    data-testid="chat-stall"
+                    role="alert"
+                    className="flex flex-wrap items-center gap-2 rounded-xl border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] px-3 py-2 text-[12px] text-[var(--status-warning-text)]"
+                  >
+                    <span className="min-w-0 flex-1">
+                      {t("chatStall.card", { minutes: session.stalledMinutes, limit: STALL_AUTO_STOP_MIN })}
+                    </span>
+                    <button type="button" onClick={onCancel} className={btn("neutral", "sm")}>
+                      {t("chatStall.stop")}
+                    </button>
+                    {onStallRetry && (
+                      <button type="button" onClick={onStallRetry} className={btn("neutral", "sm")}>
+                        {t("chatStall.retry")}
+                      </button>
+                    )}
+                  </div>
+                )}
                 {/* Soru kutusu göstergenin ALTINDA: gösterge "cevabını
                     bekliyor" diyor, kart da neyi beklediğini soruyor. */}
                 {session.pendingAsk && <AskUserCard ask={session.pendingAsk} onAnswer={onAnswerQuestion} />}
@@ -756,6 +790,12 @@ export default function ChatSessionPane({
           </div>
         )}
 
+        {rateRetry && (
+          <div className={COLUMN}>
+            <ChatRateRetryStrip state={rateRetry} onCancel={() => onCancelRateRetry?.()} />
+          </div>
+        )}
+
         {/* Sıradaki mesaj. Gönderilmiş gibi listeye girmiyor — henüz gitmedi
             ve ajan onu bu turda görmüyor; listede durursa cevabın ona ait
             olduğu sanılırdı. Composer'ın üstünde, geri alma şeridiyle aynı
@@ -773,6 +813,16 @@ export default function ChatSessionPane({
                   session.queued.attachments.map((a) => a.name).join(", ")}
               </span>
               <div className="ml-auto flex shrink-0 items-center gap-0.5">
+                {onSendQueuedNow && session.pending && (
+                  <button
+                    onClick={onSendQueuedNow}
+                    title={t("chatQueue.sendNow")}
+                    aria-label={t("chatQueue.sendNow")}
+                    className="cursor-pointer rounded-md p-1 transition hover:bg-hover hover:text-slate-200"
+                  >
+                    <SendHorizontal size={13} />
+                  </button>
+                )}
                 <button
                   onClick={onUnqueue}
                   title={t("chatQueue.restore")}

@@ -141,7 +141,7 @@ describe("Tarayıcı görünümü — geçiş", () => {
     const { commands } = setup(workspace(), true);
     const group = screen.getByRole("tablist", { name: "Görünüm" });
     const labels = within(group).getAllByRole("tab").map((r) => r.getAttribute("aria-label"));
-    expect(labels).toEqual(["Pano", "Raporlar", "Terminal", "Ofis", "Ajan yönetimi", "Görevler", "Değişiklikler", "Tarayıcı", "Bellek", "Araçlar"]);
+    expect(labels).toEqual(["Pano", "Raporlar", "Terminal", "Ofis", "Ajan yönetimi", "Görevler", "Değişiklikler", "Dosyalar", "Tarayıcı", "Bellek", "Araçlar"]);
     fireEvent.click(within(group).getByRole("tab", { name: "Tarayıcı" }));
     expect(commands.setWorkspaceView).toHaveBeenCalledWith("a", "browser");
   });

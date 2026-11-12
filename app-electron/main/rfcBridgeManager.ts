@@ -2,13 +2,14 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { createWriteStream, type WriteStream } from "node:fs";
 import { request as httpRequest } from "node:http";
 import { pythonArgs } from "./adtReadonlyServerManager";
+import { connect as netConnect } from "node:net";
 import { mt } from "./i18n";
 
 // Router'ın raw/native HTTPS'i reddettiği (-94 NIEROUT_PERM_DENIED) sistemlerde
 // `adt_rfc_bridge.py`'yi (bkz. resources/sap-toolkit/sap-consultant/skills/sap-adt-readonly/scripts)
 // launcher'ın kendisi başlatır — kullanıcı artık elle "py adt_rfc_bridge.py --port ..."
-// çalıştırmak zorunda değil. Bridge process'i proje klasörü başına tek bir kez
-// açılır (tekrar bağlanışlarda zaten sağlıklıysa yeniden başlatılmaz), uygulama
+// çalıştırmak zorunda değil. Port tek olduğu için aynı anda tek köprü yaşar; köprü
+// her bağlanışta yeniden başlatılır (kimlik bilgilerini açılışta okuyor), uygulama
 // kapanana kadar arka planda yaşar.
 
 export interface RfcBridgeStartOptions {
@@ -17,6 +18,8 @@ export interface RfcBridgeStartOptions {
   pythonPath: string;
   bridgePort: number;
   sapnwrfcHome?: string;
+  /** Portun boşalması için beklenen süre; yalnızca testler kısaltır. */
+  portFreeWaitMs?: number;
 }
 
 export interface RfcBridgeStartResult {
@@ -90,15 +93,47 @@ function describeFailure(bridge: RunningBridge, usingEmbedded: boolean): string 
   return `${hint}${detail}`;
 }
 
+/** Kendi durdurduğumuz köprünün portu bırakması için üst sınır. */
+const PORT_FREE_WAIT_MS = 10_000;
+
+/** Portta (sağlıklı olsun olmasın) dinleyen biri var mı. */
+function portInUse(port: number, timeoutMs = 1000): Promise<boolean> {
+  return new Promise((resolve) => {
+    const sock = netConnect({ host: "127.0.0.1", port });
+    const done = (busy: boolean) => {
+      sock.destroy();
+      resolve(busy);
+    };
+    sock.setTimeout(timeoutMs, () => done(true));
+    sock.once("connect", () => done(true));
+    sock.once("error", () => done(false));
+  });
+}
+
+async function waitPortFree(port: number, timeoutMs: number): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    if (!(await portInUse(port))) return true;
+    if (Date.now() >= deadline) return false;
+    await new Promise((r) => setTimeout(r, 150));
+  }
+}
+
 export async function startRfcBridge(opts: RfcBridgeStartOptions): Promise<RfcBridgeStartResult> {
   const key = opts.projectDir;
-  const existing = running.get(key);
-  if (existing && existing.port === opts.bridgePort && !existing.proc.killed && !existing.exited) {
-    const alive = await healthCheck(existing.port);
-    if (alive) {
-      return { ok: true, alreadyRunning: true, message: mt("rfcBridge.alreadyRunning") };
-    }
-    stopRfcBridge(key);
+  // Port TEK (8788), sahibi tek proje — ve bağlanma her seferinde `.conn_adt`'yi
+  // yeniden yazıyor. Köprü kimlik bilgilerini AÇILIŞTA okuduğu için ayakta
+  // olanı (aynı projeninki dahil) korumak yanlış: başka sisteme geçince eski
+  // sistemin köprüsü portu tutuyor, yeni süreç EADDRINUSE ile ölüyor ve sağlık
+  // yoklaması portta ESKİ köprüyü bulup "ayakta" diyordu. Bütün ADT çağrıları
+  // eski sisteme gidiyordu (kararlilik-2 R8a, tests/rfcBridgeSwitch.test.ts).
+  for (const [otherKey, other] of Array.from(running.entries())) {
+    if (otherKey === key || other.port === opts.bridgePort) stopRfcBridge(otherKey);
+  }
+  // Port boşalmadan başlatılan süreç bağlanamaz; boşalmıyorsa portu bizim
+  // olmayan bir süreç tutuyor. Onun cevabını "köprü ayakta" saymıyoruz.
+  if (!(await waitPortFree(opts.bridgePort, opts.portFreeWaitMs ?? PORT_FREE_WAIT_MS))) {
+    return { ok: false, alreadyRunning: false, message: mt("rfcBridge.portBusy", { port: opts.bridgePort }) };
   }
 
   let logStream: WriteStream | null = null;
@@ -188,6 +223,18 @@ export function stopRfcBridge(key: string): void {
     // best effort
   }
   running.delete(key);
+}
+
+/**
+ * Bu proje dışındaki bütün köprüleri durdurur (kararlilik-2 R8e). Router'lı
+ * bir sistemden router'sız birine geçince eski köprü — ve SAP'taki RFC
+ * oturumu — uygulama kapanana kadar yaşıyordu; tek aktif bağlam kuralında
+ * kimse onu kullanmıyor.
+ */
+export function stopRfcBridgesExcept(key: string): void {
+  for (const other of Array.from(running.keys())) {
+    if (other !== key) stopRfcBridge(other);
+  }
 }
 
 export function stopAllRfcBridges(): void {

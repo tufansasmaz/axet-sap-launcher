@@ -103,10 +103,36 @@ export interface SkillInstallResult {
    * projeye kuruldu (yedek davranış, bkz. `installSkillsIntoProject`).
    */
   globalReady: boolean;
+  /**
+   * Global klasörde kurulu ve bu projede ajana görünen yetenekler
+   * (`globalReady` ise damgadaki adlardan, klasörü yerinde olanlar). Bağlantı
+   * bildirimindeki sayı bunları da sayıyor: saymadığında modül danışmanı
+   * "0 skill kuruldu" görüyor, ajan ise yetenekleri listeliyordu.
+   */
+  globalSkills: string[];
   toolkitRoot: string | null;
   profile: SkillProfile;
   tier: SystemTier | null;
   version: string | null;
+}
+
+/**
+ * Bağlantı bildiriminde yazılan yetenek sayısı: bu projeye kopyalananlar +
+ * global klasörden gelenler, aynı ad bir kez.
+ */
+export function skillCountForNotice(result: Pick<SkillInstallResult, "installed" | "globalSkills">): number {
+  return new Set([...result.installed, ...result.globalSkills]).size;
+}
+
+/** Global damgadaki, klasörü gerçekten yerinde olan yetenek adları. */
+function readGlobalInstalledSkills(): string[] {
+  const destRoot = path.join(getGlobalAxetRoot(), "skills");
+  try {
+    const stamp = JSON.parse(readFileSync(path.join(destRoot, ".version"), "utf8")) as SkillVersionStamp;
+    return (stamp.skills ?? []).filter((name) => existsSync(path.join(destRoot, name, "SKILL.md")));
+  } catch {
+    return [];
+  }
 }
 
 export interface SkillInstallOptions {
@@ -130,6 +156,7 @@ export function installSkillsIntoProject(
     blockedByTier: [],
     adtWriteSurface: false,
     globalReady: false,
+    globalSkills: [],
     toolkitRoot,
     profile,
     tier,
@@ -155,6 +182,7 @@ export function installSkillsIntoProject(
   result.adtWriteSurface = fullPlan.some((entry) => entry.name === "sap-adt");
   const plan = fullPlan.filter((entry) => !globalReady || skillScope(entry.name) === "project");
   result.globalReady = globalReady;
+  if (globalReady) result.globalSkills = readGlobalInstalledSkills();
 
   // ÖNCE TEMİZLİK, sonra kurulum. Rol değişince eski rolün yetenekleri diskte
   // kalıyordu ve iki rol birbirinin üstüne birikiyordu (bkz.

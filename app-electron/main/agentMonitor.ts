@@ -186,8 +186,14 @@ interface Entry {
 
 const SOURCE_LOG = { exact: "kesin", estimated: "tahmini" } as const;
 
-/** Çalışırken son etkinlik sürekli değişiyor; o yüzden karşılaştırmaya girmiyor. */
-function sameStatus(a: AgentStatus, b: AgentStatus): boolean {
+/**
+ * Çalışırken son etkinlik sürekli değişiyor; her değişimi yayınlamıyoruz ama
+ * dakikada bir tazeleniyor. Hiç tazelenmeseydi ekrandaki "N dk ilerleme yok —
+ * takılmış olabilir" (kararlilik-2 R8c) ilerleyen ajan için de yanardı.
+ */
+export const RUNNING_ACTIVITY_REFRESH_MS = 60_000;
+
+export function sameStatus(a: AgentStatus, b: AgentStatus): boolean {
   if (a.state !== b.state || a.source !== b.source || a.detail !== b.detail || a.reply !== b.reply) return false;
   // Tur 6: aşama, tahmini tur ve bağ sebebi değişince de yayınla.
   if (a.link !== b.link || a.turn?.at !== b.turn?.at || a.turn?.done !== b.turn?.done || a.turn?.marked !== b.turn?.marked) return false;
@@ -196,7 +202,10 @@ function sameStatus(a: AgentStatus, b: AgentStatus): boolean {
   // Tur 9: hata, deneme sayacı ve geri sayım değişince de yayınla.
   if (a.error?.cls !== b.error?.cls || a.error?.detail !== b.error?.detail || a.attempts !== b.attempts || a.retryBlocked !== b.retryBlocked) return false;
   if (a.retry?.at !== b.retry?.at || a.retry?.attempt !== b.retry?.attempt) return false;
-  return a.state === "running" || a.lastActivity === b.lastActivity;
+  if (a.state === "running" && a.lastActivity !== null && b.lastActivity !== null) {
+    return Math.abs(b.lastActivity - a.lastActivity) < RUNNING_ACTIVITY_REFRESH_MS;
+  }
+  return a.lastActivity === b.lastActivity;
 }
 
 export function createAgentMonitor(deps: MonitorDeps): AgentMonitor {

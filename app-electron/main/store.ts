@@ -1,5 +1,5 @@
 import { app } from "electron";
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, renameSync, copyFileSync, rmSync } from "node:fs";
 import path from "node:path";
 import { encryptSecret } from "./secureStorage";
 import { isSkillProfile } from "./skillProfiles";
@@ -285,7 +285,53 @@ export function loadConfig(): AppConfig {
     delete dead.chatDisplayName;
     return merged;
   } catch {
+    backupCorruptConfig(file);
     return fallback;
+  }
+}
+
+// Okunamayan config.json'un yedeği (kararlilik-2 R8e). Bozuk dosyada
+// varsayılanlara düşülüyor ve ilk kayıt (kenar çubuğu genişliği bile) onları
+// diske yazıyordu: sistem kademeleri, ekipler, notlar, kimlik bilgileri
+// sessizce gidiyordu. Yedek üzerine yazılmadan önce alınıyor; aynı içerik
+// için bir kez.
+const backedUpConfigs = new Set<string>();
+function backupCorruptConfig(file: string): void {
+  try {
+    const raw = readFileSync(file, "utf-8");
+    if (backedUpConfigs.has(raw)) return;
+    backedUpConfigs.add(raw);
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+    copyFileSync(file, `${file}.bozuk-${stamp}`);
+  } catch {
+    // yedek alınamadıysa yapacak bir şey yok; davranış eskisi gibi
+  }
+}
+
+/**
+ * Önce geçici dosyaya, sonra yer değiştirerek yaz: yazma yarıda kesilirse
+ * (güncelleyici, çökme, elektrik) eski dosya sağlam kalıyor.
+ */
+function writeFileAtomic(file: string, content: string): void {
+  const tmp = `${file}.${process.pid}.tmp`;
+  try {
+    writeFileSync(tmp, content, "utf-8");
+    renameSync(tmp, file);
+  } catch (err) {
+    try {
+      rmSync(tmp, { force: true });
+    } catch {
+      /* geçici dosya */
+    }
+    // Yer değiştirme reddedilirse (Windows'ta dosyayı başka süreç — virüs
+    // tarayıcı, yedekleme — açık tutuyor olabilir) eski yönteme düş: ayarın
+    // hiç yazılmaması daha kötü.
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === "EPERM" || code === "EBUSY" || code === "EACCES") {
+      writeFileSync(file, content, "utf-8");
+      return;
+    }
+    throw err;
   }
 }
 
@@ -306,7 +352,7 @@ export function saveConfig(partial: Partial<AppConfig>): AppConfig {
   const next: AppConfig = { ...current, ...partial, previousProjectsBaseDirs };
   const dir = path.dirname(configPath());
   mkdirSync(dir, { recursive: true });
-  writeFileSync(configPath(), JSON.stringify(next, null, 2), "utf-8");
+  writeFileAtomic(configPath(), JSON.stringify(next, null, 2));
   return next;
 }
 

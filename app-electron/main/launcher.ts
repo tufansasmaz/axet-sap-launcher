@@ -15,8 +15,8 @@ import { buildAdtToolScript } from "./adtToolScript";
 import { pinForUrl } from "./tlsPin";
 import { performSamlLogin, type SamlLoginResult } from "./samlLogin";
 import { saveSamlIdpOrigin } from "./store";
-import { getGlobalAxetRoot, installSkillsIntoProject, type SkillInstallResult } from "./sapToolkit";
-import { startRfcBridge } from "./rfcBridgeManager";
+import { getGlobalAxetRoot, installSkillsIntoProject, skillCountForNotice, type SkillInstallResult } from "./sapToolkit";
+import { startRfcBridge, stopRfcBridgesExcept } from "./rfcBridgeManager";
 import { isRouterPermissionDeniedMessage } from "./sapRouter";
 import { startReadonlyServer } from "./adtReadonlyServerManager";
 import { appLog } from "./appLog";
@@ -1266,6 +1266,10 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
     tier: systemTier
   });
 
+  // Tek aktif bağlam: başka sistemlerin RFC köprüleri (ve SAP'taki RFC
+  // oturumları) kapanıyor; bu sistemin köprüsü gerekiyorsa aşağıda yeniden açılıyor.
+  stopRfcBridgesExcept(projectDir);
+
   let toolTest = { ok: false, detail: "RFC bridge modunda adt-tool.ps1 self-test atlandı" };
   let rfcOutcome: RfcBridgeOutcome | null = null;
 
@@ -1328,7 +1332,7 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
     return { ok: false, verified: verify.ok, projectDir, message: connectMsg(language, "contextWriteFailed", { error: (err as Error).message }) };
   }
 
-  const skillNote = skillInstall.toolkitRoot ? skillNoteFor(language, skillInstall.installed.length) : "";
+  const skillNote = skillInstall.toolkitRoot ? skillNoteFor(language, skillCountForNotice(skillInstall)) : "";
 
   if (rfcBridge && rfcOutcome) {
     if (rfcOutcome.credentialsInvalid) {

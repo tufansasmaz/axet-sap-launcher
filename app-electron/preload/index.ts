@@ -236,6 +236,7 @@ const api = {
     ipcRenderer.invoke("changes:revert", workspaceId, checkpointId, paths),
   changesInitRepo: (workspaceId: string): Promise<ChangesCommandResult> => ipcRenderer.invoke("changes:initRepo", workspaceId),
   changesOpenRoot: (workspaceId: string): Promise<boolean> => ipcRenderer.invoke("changes:openRoot", workspaceId),
+  agentsFilesRoot: (workspaceId: string): Promise<string | null> => ipcRenderer.invoke("agents:filesRoot", workspaceId),
   // Akış geçmişi ve ekip köprüsü (Tur 4).
   flowLoad: (workspaceId: string): Promise<StoredFlowEvent[]> => ipcRenderer.invoke("flow:load", workspaceId),
   flowSave: (workspaceId: string, events: StoredFlowEvent[]): Promise<boolean> => ipcRenderer.invoke("flow:save", workspaceId, events),
@@ -359,6 +360,7 @@ const api = {
   readImageDataUrl: (filePath: string) => ipcRenderer.invoke("fs:readImageDataUrl", filePath),
   openInExplorer: (filePath: string) => ipcRenderer.invoke("fs:openInExplorer", filePath),
   openExternal: (filePath: string) => ipcRenderer.invoke("fs:openExternal", filePath),
+  openAttachment: (filePath: string): Promise<boolean> => ipcRenderer.invoke("chatAttachments:open", filePath),
   openExternalUrl: (url: string) => ipcRenderer.invoke("shell:openUrl", url),
   writeClipboard: (text: string) => ipcRenderer.invoke("clipboard:writeText", text),
   discoverAxetFlowsLiveUrl: () => ipcRenderer.invoke("axetFlowsLive:discoverUrl"),
