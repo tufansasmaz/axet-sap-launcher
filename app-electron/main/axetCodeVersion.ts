@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { axetExeCheck } from "./axetExe";
 import { mt } from "./i18n";
 
 /**
@@ -20,17 +21,24 @@ let lastSeen: string | null = null;
 let inFlight: Promise<string | null> | null = null;
 
 function probe(): Promise<string | null> {
+  // Bozuk exe çalıştırılmıyor (bkz. axetExe.ts): Windows penceresi çıkmasın.
+  if (axetExeCheck().kind === "broken") return Promise.resolve(null);
   return new Promise((resolve) => {
-    execFile("axet-code.exe", ["--version"], { timeout: 10_000, windowsHide: true }, (err, stdout) => {
-      if (err) {
-        resolve(null);
-        return;
-      }
-      // "axet-code version 1.2.3" -> "1.2.3". Biçim değişirse ham satır
-      // yine de anlamlı: sürüm karşılaştırması yapmıyoruz, yalnızca eşitlik.
-      const line = String(stdout).trim().split(/\r?\n/)[0] ?? "";
-      resolve(line.replace(/^axet-code\s+version\s+/i, "").trim() || null);
-    });
+    try {
+      execFile("axet-code.exe", ["--version"], { timeout: 10_000, windowsHide: true }, (err, stdout) => {
+        if (err) {
+          resolve(null);
+          return;
+        }
+        // "axet-code version 1.2.3" -> "1.2.3". Biçim değişirse ham satır
+        // yine de anlamlı: sürüm karşılaştırması yapmıyoruz, yalnızca eşitlik.
+        const line = String(stdout).trim().split(/\r?\n/)[0] ?? "";
+        resolve(line.replace(/^axet-code\s+version\s+/i, "").trim() || null);
+      });
+    } catch {
+      // EFTYPE gibi hatalar 'error' olayıyla değil senkron fırlatılıyor.
+      resolve(null);
+    }
   });
 }
 
@@ -123,16 +131,29 @@ export function statusFromProbe(p: ProbeOutcome): AxetBinaryStatus {
 }
 
 function probeOutcome(): Promise<ProbeOutcome> {
+  // Önce diskte bak: bozuk exe'yi çalıştırmak Windows'un "This app can't run
+  // on your PC" penceresini açabiliyor ve EFTYPE senkron fırlatılıyordu
+  // (ölçüm 2026-11-12) — bu Promise reddediliyor, Doktor/Hazırlık düşüyordu.
+  const exe = axetExeCheck();
+  if (exe.kind === "missing") return Promise.resolve({ errorCode: "ENOENT", errorMessage: "", stdout: "" });
+  if (exe.kind === "broken") {
+    return Promise.resolve({ errorCode: "EBROKEN", errorMessage: `${exe.path} (${exe.reason})`, stdout: "" });
+  }
   return new Promise((resolve) => {
-    execFile("axet-code.exe", ["--version"], { timeout: 5_000, windowsHide: true }, (err, stdout, stderr) => {
-      const e = err as (NodeJS.ErrnoException & { code?: string | number }) | null;
-      resolve({
-        errorCode: e ? String(e.code ?? "ERR") : null,
-        errorMessage: e ? e.message : "",
-        stdout: String(stdout ?? ""),
-        stderr: String(stderr ?? "")
+    try {
+      execFile("axet-code.exe", ["--version"], { timeout: 5_000, windowsHide: true }, (err, stdout, stderr) => {
+        const e = err as (NodeJS.ErrnoException & { code?: string | number }) | null;
+        resolve({
+          errorCode: e ? String(e.code ?? "ERR") : null,
+          errorMessage: e ? e.message : "",
+          stdout: String(stdout ?? ""),
+          stderr: String(stderr ?? "")
+        });
       });
-    });
+    } catch (err) {
+      const e = err as NodeJS.ErrnoException;
+      resolve({ errorCode: String(e.code ?? "ERR"), errorMessage: e.message ?? String(err), stdout: "" });
+    }
   });
 }
 

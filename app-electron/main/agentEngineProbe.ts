@@ -61,7 +61,8 @@ export async function detectEngines(deps: EngineProbeDeps): Promise<AgentEngineI
       const note = deps.axetMessage(status);
       const installedAxet = status.kind !== "missing";
       // Sürüm axet-code'un kendi sondajından; yol `where`dan.
-      const found = installedAxet ? await detailsOf(deps, "axet-code") : {};
+      // Bozuk exe'nin `--version`'ı da çalıştırılmıyor (axetExe.ts).
+      const found = installedAxet && status.kind !== "broken" ? await detailsOf(deps, "axet-code") : {};
       const version = status.kind === "ok" || status.kind === "old" ? status.version : undefined;
       out.push({
         id,

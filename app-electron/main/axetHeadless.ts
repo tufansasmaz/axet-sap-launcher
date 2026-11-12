@@ -11,6 +11,9 @@
 // öldürmek oturumu bozmuyor; veritabanı tur sürerken parça parça yazılıyor.
 
 import { spawn } from "node:child_process";
+import { EventEmitter } from "node:events";
+import { axetExeCheck } from "./axetExe";
+import { mt } from "./i18n";
 import type { AxetChatActivity, AxetChatProgress, AxetModelEntry } from "../shared/types";
 import { noteUpdateLine } from "./axetCodeVersion";
 import { axetSpawnEnv } from "./axetSpawnEnv";
@@ -198,10 +201,42 @@ export function killTreeDefault(child: ChildLike): void {
   }
 }
 
+/**
+ * Açılamayan süreç: 'error' olayını bir sonraki turda veren sahte çocuk.
+ * Çağıranlar (başsız tur, ısıtma havuzu) açılış hatasını zaten 'error'
+ * olayından okuyor; senkron istisna onları atlayıp IPC'yi düşürüyordu.
+ */
+function failedChild(err: Error): ChildLike {
+  const child = new EventEmitter() as EventEmitter & { stdin: EventEmitter & { write(): boolean; end(): void }; stdout: EventEmitter; stderr: EventEmitter };
+  const stdin = new EventEmitter() as EventEmitter & { write(): boolean; end(): void };
+  stdin.write = () => false;
+  stdin.end = () => {};
+  child.stdin = stdin;
+  child.stdout = new EventEmitter();
+  child.stderr = new EventEmitter();
+  setImmediate(() => {
+    child.emit("error", err);
+    child.emit("close", null);
+  });
+  return child as unknown as ChildLike;
+}
+
+/**
+ * axet-code'u açar; bozuk exe'yi HİÇ çalıştırmaz (Windows penceresi, bkz.
+ * axetExe.ts) ve `spawn`'ın senkron fırlattığı hatayı (EFTYPE) olaya çevirir.
+ */
+export function spawnAxetSafely(cmd: string, args: string[], opts: { cwd: string; env: NodeJS.ProcessEnv }): ChildLike {
+  if (cmd === "axet-code" && axetExeCheck(opts.env).kind === "broken") return failedChild(new Error(mt("chat.axetBroken")));
+  try {
+    return spawn(cmd, args, { cwd: opts.cwd, env: opts.env, windowsHide: true, stdio: ["pipe", "pipe", "pipe"] }) as unknown as ChildLike;
+  } catch (err) {
+    return failedChild(err instanceof Error ? err : new Error(String(err)));
+  }
+}
+
 export function defaultHeadlessDeps(): HeadlessDeps {
   return {
-    spawn: (cmd, args, opts) =>
-      spawn(cmd, args, { cwd: opts.cwd, env: opts.env, windowsHide: true, stdio: ["pipe", "pipe", "pipe"] }) as unknown as ChildLike,
+    spawn: spawnAxetSafely,
     env: (useConnectors) => axetSpawnEnv(useConnectors),
     dbPath: (cwd) => resolveSessionDb(cwd),
     readMessages: (dbPath, sessionId, sinceSec) => readMessagesSince(dbPath, sessionId, sinceSec),

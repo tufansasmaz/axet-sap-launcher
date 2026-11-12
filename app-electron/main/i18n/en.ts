@@ -49,7 +49,7 @@ export const MAIN_EN = {
   "chat.axetTooOld": "Chat needs axet-code {min} or later; installed version is {version}. Please update axet-code.",
   "chat.axetMissing": "axet-code was not found. Please install axet-code.",
   "chat.axetBroken":
-    "The axet-code program file is broken (an update may have been interrupted). If %TEMP%\\axet-code-update.msi exists, run via Win+R: msiexec /fa \"%TEMP%\\axet-code-update.msi\" — otherwise reinstall axet-code.",
+    "The axet-code program file is broken (axet-code.exe is empty or invalid; usually an update cut short while the program was open). NTT Studio therefore does not run it at all. To recover: close NTT Studio and every axet-code window, delete %LOCALAPPDATA%\\axet-code\\bin\\axet-code.exe and reinstall axet-code from Company Portal. If %TEMP%\\axet-code-update.msi exists, this also repairs it (Win+R): msiexec /fa \"%TEMP%\\axet-code-update.msi\"",
 
   // --- axetChat.ts (headless bridge) ---
   "chat.headlessAnswerLabel": "The user's answer",

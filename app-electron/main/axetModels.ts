@@ -9,6 +9,8 @@ import type {
   AxetModelKind,
   AxetModelsListResult
 } from "../shared/types";
+import { axetExeCheck } from "./axetExe";
+import { mt } from "./i18n";
 
 // axet-code CLI'ının kendi global config dosyası — `axet-code dirs` komutunun
 // ikinci satırında bastırdığı veri dizini (bu makinede canlı doğrulandı:
@@ -51,14 +53,24 @@ function parseModelLines(stdout: string): AxetModelEntry[] {
 }
 
 export function listAxetModels(): Promise<AxetModelsListResult> {
+  // Bozuk (0 baytlık) exe cmd.exe'ye verilince Windows "This app can't run on
+  // your PC" penceresini açıyor, seçici zaman aşımına kadar "Yükleniyor..."
+  // kalıyordu (ölçüm 2026-11-12). Çalıştırmadan söyle.
+  if (axetExeCheck().kind === "broken") {
+    return Promise.resolve({ ok: false, models: [], error: mt("chat.axetBroken") });
+  }
   return new Promise((resolve) => {
-    exec("axet-code models", { timeout: EXEC_TIMEOUT_MS, windowsHide: true }, (err, stdout, stderr) => {
-      if (err) {
-        resolve({ ok: false, models: [], error: (stderr || err.message || "").trim() || err.message });
-        return;
-      }
-      resolve({ ok: true, models: parseModelLines(stdout) });
-    });
+    try {
+      exec("axet-code models", { timeout: EXEC_TIMEOUT_MS, windowsHide: true }, (err, stdout, stderr) => {
+        if (err) {
+          resolve({ ok: false, models: [], error: (stderr || err.message || "").trim() || err.message });
+          return;
+        }
+        resolve({ ok: true, models: parseModelLines(stdout) });
+      });
+    } catch (err) {
+      resolve({ ok: false, models: [], error: (err as Error).message });
+    }
   });
 }
 

@@ -52,7 +52,7 @@ export const MAIN_TR = {
   "chat.axetTooOld": "Sohbet için axet-code {min} veya üstü gerekiyor; kurulu sürüm {version}. axet-code'u güncelleyin.",
   "chat.axetMissing": "axet-code bulunamadı. axet-code'u kurun.",
   "chat.axetBroken":
-    "axet-code program dosyası bozuk (güncelleme yarıda kalmış olabilir). %TEMP%\\axet-code-update.msi varsa Win+R ile çalıştırın: msiexec /fa \"%TEMP%\\axet-code-update.msi\" — yoksa axet-code'u yeniden kurun.",
+    "axet-code program dosyası bozuk (axet-code.exe boş ya da geçersiz; çoğunlukla güncelleme, program açıkken yarıda kalınca). NTT Studio bu yüzden onu hiç çalıştırmıyor. Kurtarma: NTT Studio'yu ve tüm axet-code pencerelerini kapatın, %LOCALAPPDATA%\\axet-code\\bin\\axet-code.exe dosyasını silin ve axet-code'u Company Portal'dan yeniden yükleyin. %TEMP%\\axet-code-update.msi varsa Win+R ile şu da onarır: msiexec /fa \"%TEMP%\\axet-code-update.msi\"",
 
   // --- axetChat.ts (başsız köprü) ---
   "chat.headlessAnswerLabel": "Kullanıcının cevabı",
