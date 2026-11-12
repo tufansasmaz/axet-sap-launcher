@@ -4,7 +4,7 @@
 
 import { capabilitiesFromTools, type AdtCapabilities } from "../shared/adtCapabilities";
 import type { SkillProfile, SystemTier } from "../shared/types";
-import { probeAdtTools } from "./adtReadonlyServerManager";
+import { lastAdtServerFailure, probeAdtTools } from "./adtReadonlyServerManager";
 
 export async function readAdtCapabilities(
   port: number,
@@ -12,7 +12,11 @@ export async function readAdtCapabilities(
   role: SkillProfile | null
 ): Promise<AdtCapabilities> {
   const health = await probeAdtTools(port);
-  if (health.unauthorized) return { systemUuid: sap.uuid, server: "unauthorized", rows: [] };
-  if (!health.alive) return { systemUuid: sap.uuid, server: "down", rows: [] };
+  // Açılamadıysa NEDENİ de (R5, 2026-11-12): "çalışmıyor; yeniden bağlan"
+  // tek başına kullanıcıyı aynı duvara geri gönderiyordu.
+  const failure = lastAdtServerFailure()?.message;
+  const why = failure ? { failure: failure.slice(0, 900) } : {};
+  if (health.unauthorized) return { systemUuid: sap.uuid, server: "unauthorized", rows: [], ...why };
+  if (!health.alive) return { systemUuid: sap.uuid, server: "down", rows: [], ...why };
   return { systemUuid: sap.uuid, server: "running", rows: capabilitiesFromTools(health.tools, { role, tier: sap.tier }) };
 }

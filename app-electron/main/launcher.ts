@@ -19,6 +19,7 @@ import { getGlobalAxetRoot, installSkillsIntoProject, type SkillInstallResult } 
 import { startRfcBridge } from "./rfcBridgeManager";
 import { isRouterPermissionDeniedMessage } from "./sapRouter";
 import { startReadonlyServer } from "./adtReadonlyServerManager";
+import { appLog } from "./appLog";
 import { sapBindingFor, type SapBinding } from "./sapBinding";
 import { closeAllWriteSessions, closeWriteSession, openWriteSession } from "./sapWrite/server";
 import type { Identity } from "./sapWrite/policy";
@@ -377,6 +378,7 @@ async function attemptReadonlyServerAutoStart(
       const session = await openWriteSession(projectDir, identity);
       gate = { url: session.url, token: session.token };
     } catch (err) {
+      appLog("adt.sunucu", { sonuc: "basarisiz", yuzey: "onayli", sebep: "onayUcu" });
       // Onay ucu yoksa DEV'e onaysız yazan bir sunucu açmıyoruz.
       return {
         started: false,
@@ -395,6 +397,13 @@ async function attemptReadonlyServerAutoStart(
     gate,
     tier,
     binding
+  });
+  // Günlükte iz yoktu (R5, 2026-11-12): "8787 erişilemiyor" raporlarında
+  // neden açılmadığı hiçbir yerde görünmüyordu. Ham çıktı değil, sebebin adı.
+  appLog("adt.sunucu", {
+    sonuc: startResult.ok ? (startResult.alreadyRunning ? "zaten" : "basladi") : "basarisiz",
+    yuzey: writeSurface ? "onayli" : "salt-okunur",
+    ...(startResult.ok ? {} : { sebep: startResult.reason ?? "bilinmiyor" })
   });
   if (!startResult.ok) {
     if (gate) closeWriteSession(projectDir);

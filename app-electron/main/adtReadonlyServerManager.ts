@@ -1,7 +1,8 @@
-import { spawn, type ChildProcess } from "node:child_process";
+import { execFile, spawn, type ChildProcess } from "node:child_process";
 import { createWriteStream, type WriteStream } from "node:fs";
 import { request as httpRequest } from "node:http";
 import { connect as netConnect } from "node:net";
+import path from "node:path";
 import { getAdtHttpToken } from "./adtHttpToken";
 import { withNttPythonSite } from "./pythonSiteEnv";
 import { mt } from "./i18n";
@@ -61,6 +62,47 @@ export interface ReadonlyServerStartOptions {
    * beklenir. Yalnızca testler kısaltır.
    */
   staleWaitMs?: number;
+  /**
+   * Portu tutan (bizim anahtarımızı bilen) süreci kapatır; kapattıysa true.
+   * Varsayılan: Windows'ta netstat + taskkill /T. Yalnızca testler değiştirir.
+   */
+  reclaimPort?: (port: number) => Promise<boolean>;
+}
+
+/** 127.0.0.1:port'ta DİNLEYEN sürecin PID'i (`netstat -ano`); yoksa null. */
+export function listeningPid(netstatOutput: string, port: number): number | null {
+  for (const line of netstatOutput.split(/\r?\n/)) {
+    const cols = line.trim().split(/\s+/);
+    // TCP  127.0.0.1:8787  0.0.0.0:0  LISTENING  1234
+    if (cols.length < 5 || cols[0].toUpperCase() !== "TCP") continue;
+    if (!/:(\d+)$/.test(cols[1]) || Number(/:(\d+)$/.exec(cols[1])![1]) !== port) continue;
+    if (!/^(127\.0\.0\.1|0\.0\.0\.0|\[::1?\])$/.test(cols[1].replace(/:\d+$/, ""))) continue;
+    if (cols[3].toUpperCase() !== "LISTENING") continue;
+    const pid = Number(cols[4]);
+    if (Number.isInteger(pid) && pid > 0 && pid !== process.pid) return pid;
+  }
+  return null;
+}
+
+function runQuiet(file: string, args: string[]): Promise<string | null> {
+  return new Promise((resolve) => {
+    try {
+      execFile(file, args, { windowsHide: true, timeout: 10_000, maxBuffer: 4 * 1024 * 1024 }, (err, stdout) =>
+        resolve(err ? null : String(stdout))
+      );
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
+async function reclaimOwnPort(port: number): Promise<boolean> {
+  if (process.platform !== "win32") return false;
+  const out = await runQuiet("netstat", ["-ano", "-p", "TCP"]);
+  const pid = out ? listeningPid(out, port) : null;
+  if (!pid) return false;
+  // Ağacıyla: `py` başlatıcısının altındaki python.exe de gitsin.
+  return (await runQuiet("taskkill", ["/PID", String(pid), "/T", "/F"])) !== null;
 }
 
 export interface ApprovalGate {
@@ -73,6 +115,8 @@ export interface ReadonlyServerStartResult {
   alreadyRunning: boolean;
   external: boolean;
   message: string;
+  /** Başarısızlığın adı (günlük için; ham çıktı değil). */
+  reason?: string;
 }
 
 interface RunningServer {
@@ -262,31 +306,88 @@ function surfaceMatches(info: HealthInfo, opts: ReadonlyServerStartOptions): boo
   return !info.gated && info.writable === opts.expectWritable && (opts.expectWritable || info.readsData);
 }
 
-function describeFailure(server: RunningServer): string {
+/**
+ * Sunucuyu açmanın komut satırı. `py` başlatıcısına `-3` veriliyor: betiklerin
+ * ilk satırı `#!/usr/bin/env python3` ve py.exe bu satırı görünce varsayılan
+ * Python'u değil PATH'te ilk bulduğu `python3.exe`'yi çalıştırıyor (ölçüldü
+ * 2026-11-12; Store takma adı atlanıyor, uv'nin ~/.local/bin'e bıraktığı ya da
+ * bozuk bir python3.exe atlanmıyor). `-3` satırı yok sayıyor: Doktor'un
+ * sorduğu ve `py -m pip`'in paket kurduğu yorumlayıcı çalışıyor.
+ */
+export function pythonArgs(pythonPath: string, scriptPath: string, rest: string[]): string[] {
+  const launcher = /^py(\.exe)?$/i.test(path.win32.basename(pythonPath));
+  return launcher ? ["-3", scriptPath, ...rest] : [scriptPath, ...rest];
+}
+
+export type AdtServerFailureReason =
+  | "requestsMissing"
+  | "mcpMissing"
+  | "dotenvMissing"
+  | "someDepMissing"
+  | "pythonBadExe"
+  | "portInUse"
+  | "exitedEarly"
+  | "pythonMissing"
+  | "unknown";
+
+/** Sunucunun açılış çıktısından sebebin adı (günlük ve ekran için; ham metin değil). */
+export function failureReason(tail: string, exited: boolean): AdtServerFailureReason {
+  if (/no module named ['"]requests['"]/i.test(tail)) return "requestsMissing";
+  if (/no module named ['"]mcp['"]/i.test(tail)) return "mcpMissing";
+  if (/no module named ['"]dotenv['"]|python-dotenv/i.test(tail)) return "dotenvMissing";
+  if (/no module named/i.test(tail)) return "someDepMissing";
+  // py.exe'nin bozuk/başka mimari bir yorumlayıcıyı açamadığı durum (çıkış 101).
+  if (/unable to create process|not a valid win32 application|can't run on your pc/i.test(tail)) return "pythonBadExe";
+  if (/address already in use|eaddrinuse|winerror 10048/i.test(tail)) return "portInUse";
+  if (!tail && exited) return "exitedEarly";
+  if (!tail) return "pythonMissing";
+  return "unknown";
+}
+
+/** Son başarısız açılış: "Ajan bu sistemde" öbeği "neden" sorusunu buradan cevaplıyor. */
+let lastFailure: { reason: AdtServerFailureReason | string; message: string; at: number } | null = null;
+
+export function lastAdtServerFailure(): { reason: AdtServerFailureReason | string; message: string; at: number } | null {
+  return lastFailure;
+}
+
+function describeFailure(server: RunningServer): { message: string; reason: AdtServerFailureReason } {
   const tail = server.tail.join("").trim();
+  const reason = failureReason(tail, server.exited);
   let hint = "";
-  if (/no module named ['"]requests['"]/i.test(tail)) {
-    hint = mt("adtServer.requestsMissing");
-  } else if (/no module named ['"]mcp['"]/i.test(tail)) {
-    hint = mt("adtServer.mcpMissing");
-  } else if (/no module named ['"]dotenv['"]|python-dotenv/i.test(tail)) {
-    hint = mt("adtServer.dotenvMissing");
-  } else if (/no module named/i.test(tail)) {
-    hint = mt("adtServer.someDepMissing");
-  } else if (/address already in use|eaddrinuse/i.test(tail)) {
-    hint = mt("adtServer.portInUse", { port: server.port });
-  } else if (!tail && server.exited) {
-    hint = mt("adtServer.exitedEarly", { detail: server.exitInfo });
-  } else if (!tail) {
-    hint = mt("adtServer.pythonMissing");
+  switch (reason) {
+    case "requestsMissing":
+    case "mcpMissing":
+    case "dotenvMissing":
+    case "someDepMissing":
+    case "pythonBadExe":
+    case "pythonMissing":
+      hint = mt(`adtServer.${reason}` as Parameters<typeof mt>[0]);
+      break;
+    case "portInUse":
+      hint = mt("adtServer.portInUse", { port: server.port });
+      break;
+    case "exitedEarly":
+      hint = mt("adtServer.exitedEarly", { detail: server.exitInfo });
+      break;
+    default:
+      hint = "";
   }
   const detail = tail ? mt("common.detailSuffix", { tail: tail.slice(-400) }) : "";
-  return hint
+  const message = hint
     ? mt("adtServer.failureWithHint", { hint, detail, port: server.port })
     : mt("adtServer.didNotStart", { port: server.port, detail });
+  return { message, reason };
 }
 
 export async function startReadonlyServer(opts: ReadonlyServerStartOptions): Promise<ReadonlyServerStartResult> {
+  const result = await startReadonlyServerInner(opts);
+  if (!result.ok) lastFailure = { reason: (result.reason ?? "unknown") as AdtServerFailureReason | string, message: result.message, at: Date.now() };
+  else lastFailure = null;
+  return result;
+}
+
+async function startReadonlyServerInner(opts: ReadonlyServerStartOptions): Promise<ReadonlyServerStartResult> {
   const key = opts.projectDir;
   const existing = running.get(key);
   if (existing && existing.port === opts.port && (existing.external || (!existing.proc?.killed && !existing.exited))) {
@@ -305,7 +406,7 @@ export async function startReadonlyServer(opts: ReadonlyServerStartOptions): Pro
     // kapatma hakkımız var — doğrusuyla değiştir.
     stopReadonlyServer(key);
     if (!existing.external && !(await waitPortFree(opts.port, OWN_STOP_WAIT_MS))) {
-      return { ok: false, alreadyRunning: false, external: false, message: mt("adtServer.previousStillRunning", { port: opts.port }) };
+      return { ok: false, alreadyRunning: false, external: false, reason: "previousStillRunning", message: mt("adtServer.previousStillRunning", { port: opts.port }) };
     }
   }
 
@@ -320,7 +421,7 @@ export async function startReadonlyServer(opts: ReadonlyServerStartOptions): Pro
     if (otherKey === key || other.port !== opts.port) continue;
     stopReadonlyServer(otherKey);
     if (!other.external && !(await waitPortFree(opts.port, OWN_STOP_WAIT_MS))) {
-      return { ok: false, alreadyRunning: false, external: false, message: mt("adtServer.previousStillRunning", { port: opts.port }) };
+      return { ok: false, alreadyRunning: false, external: false, reason: "previousStillRunning", message: mt("adtServer.previousStillRunning", { port: opts.port }) };
     }
   }
 
@@ -344,17 +445,27 @@ export async function startReadonlyServer(opts: ReadonlyServerStartOptions): Pro
     // Büyük olasılıkla önceki launcher'dan kalan gated sunucu: onay ucu artık
     // onu tanımıyor, kalp atışında kendini kapatacak. Öldürmüyoruz, bekliyoruz.
     if (!(await waitPortFree(opts.port, opts.staleWaitMs ?? STALE_GATED_WAIT_MS))) {
-      return { ok: false, alreadyRunning: false, external: true, message: mt("adtServer.foreignTokenGated", { port: opts.port }) };
+      return { ok: false, alreadyRunning: false, external: true, reason: "foreignTokenGated", message: mt("adtServer.foreignTokenGated", { port: opts.port }) };
     }
     onPort = DEAD;
   }
   if (onPort.unauthorized) {
     // Token'ını bilmediğimiz bir sunucu: ne kullanabiliriz ne de sahibiyiz.
     // Öldürmüyoruz; kullanıcıya adıyla söylüyoruz.
-    return { ok: false, alreadyRunning: false, external: true, message: mt("adtServer.foreignToken", { port: opts.port }) };
+    return { ok: false, alreadyRunning: false, external: true, reason: "foreignToken", message: mt("adtServer.foreignToken", { port: opts.port }) };
+  }
+  // Portta BİZİM anahtarımızı bilen ama yanlış yüzeyi sunan bir süreç: anahtar
+  // yalnız bu sürecin belleğinde ve çocuklarının ortamında, yani o süreç bizim
+  // ağacımızdan doğdu — tipik olarak açılış başarısız olunca ajanın kabuğundan
+  // elle başlatılan, kapısız (19-20 araçlık) salt okunur sunucu. Eskiden burada
+  // vazgeçiliyordu ve yeniden bağlanmak hiçbir şeyi değiştirmiyordu (R3,
+  // 2026-11-12): DEV'e yazma o süreç kapanana kadar hiç açılmıyordu.
+  if (onPort.alive && (opts.gate || !surfaceMatches(onPort, opts))) {
+    const reclaimed = await (opts.reclaimPort ?? reclaimOwnPort)(opts.port);
+    if (reclaimed && (await waitPortFree(opts.port, OWN_STOP_WAIT_MS))) onPort = DEAD;
   }
   if (onPort.alive && opts.gate) {
-    return { ok: false, alreadyRunning: false, external: true, message: mt("adtServer.gatedPortBusy", { port: opts.port }) };
+    return { ok: false, alreadyRunning: false, external: true, reason: "gatedPortBusy", message: mt("adtServer.gatedPortBusy", { port: opts.port }) };
   }
   if (onPort.alive) {
     if (!surfaceMatches(onPort, opts)) {
@@ -362,6 +473,7 @@ export async function startReadonlyServer(opts: ReadonlyServerStartOptions): Pro
         ok: false,
         alreadyRunning: false,
         external: true,
+        reason: "surfaceMismatch",
         message: mt("adtServer.surfaceMismatch", {
           port: opts.port,
           found: String(onPort.toolCount),
@@ -436,7 +548,7 @@ export async function startReadonlyServer(opts: ReadonlyServerStartOptions): Pro
     // varsayılan taşıması stdio MCP oldu; bayraksız çalıştırmak sessizce
     // stdin'i dinleyen, /health'i olmayan bir process bırakıyor ve biz 15
     // saniye boyunca gelmeyecek bir cevabı bekliyorduk.
-    proc = spawn(opts.pythonPath, [opts.scriptPath, "--http", "--port", String(opts.port)], {
+    proc = spawn(opts.pythonPath, pythonArgs(opts.pythonPath, opts.scriptPath, ["--http", "--port", String(opts.port)]), {
       cwd: opts.projectDir,
       // Token verilmezse motor kendi token'ını üretip log'a basıyor — hem biz
       // onu bilmiyoruz hem de log OneDrive'daki proje klasöründe.
@@ -446,7 +558,7 @@ export async function startReadonlyServer(opts: ReadonlyServerStartOptions): Pro
     });
   } catch (err) {
     logStream?.end();
-    return { ok: false, alreadyRunning: false, external: false, message: mt("adtServer.spawnFailed", { pythonPath: opts.pythonPath, detail: (err as Error).message }) };
+    return { ok: false, alreadyRunning: false, external: false, reason: "spawnFailed", message: mt("adtServer.spawnFailed", { pythonPath: opts.pythonPath, detail: (err as Error).message }) };
   }
 
   server.proc = proc;
@@ -480,9 +592,9 @@ export async function startReadonlyServer(opts: ReadonlyServerStartOptions): Pro
   }
 
   if (!healthy) {
-    const message = describeFailure(server);
+    const { message, reason } = describeFailure(server);
     stopReadonlyServer(key);
-    return { ok: false, alreadyRunning: false, external: false, message };
+    return { ok: false, alreadyRunning: false, external: false, message, reason };
   }
 
   return { ok: true, alreadyRunning: false, external: false, message: mt("adtServer.started", { port: opts.port }) };

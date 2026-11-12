@@ -1,6 +1,7 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { createWriteStream, type WriteStream } from "node:fs";
 import { request as httpRequest } from "node:http";
+import { pythonArgs } from "./adtReadonlyServerManager";
 import { mt } from "./i18n";
 
 // Router'ın raw/native HTTPS'i reddettiği (-94 NIEROUT_PERM_DENIED) sistemlerde
@@ -125,7 +126,8 @@ export async function startRfcBridge(opts: RfcBridgeStartOptions): Promise<RfcBr
 
   let proc: ChildProcess;
   try {
-    proc = spawn(opts.pythonPath, [opts.scriptPath, "--port", String(opts.bridgePort)], {
+    // Gömülü runtime yoksa "py": betik satırı PATH'teki python3'ü seçmesin (pythonArgs).
+    proc = spawn(opts.pythonPath, pythonArgs(opts.pythonPath, opts.scriptPath, ["--port", String(opts.bridgePort)]), {
       cwd: opts.projectDir,
       env,
       windowsHide: true,

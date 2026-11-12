@@ -157,6 +157,7 @@ export const tr = {
   "agentCaps.noTier": "Yok — sistem DEV değil",
   "agentCaps.noEngine": "Yok — bu araç henüz yok",
   "agentCaps.down": "ADT sunucusu çalışmıyor; ajan SAP'a erişemez. Sisteme yeniden bağlanmayı deneyin.",
+  "agentCaps.why": "Son açma denemesi: {reason}",
   "agentCaps.unauthorized": "8787 portunda NTT Studio'nun başlatmadığı bir sunucu var; ajan ona erişemez.",
   "systemPanel.addressLabel": "Adres",
   "systemPanel.adtUrlLabel": "ADT Adresi",

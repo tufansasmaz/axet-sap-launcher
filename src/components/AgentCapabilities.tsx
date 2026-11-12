@@ -61,7 +61,14 @@ export default function AgentCapabilities({ systemUuid }: { systemUuid: string }
     <div className="flex flex-col gap-2 border-t border-line-subtle pt-3">
       <h4 className="text-xs font-medium text-slate-300">{t("agentCaps.heading")}</h4>
       {caps.server !== "running" ? (
-        <p className="text-xs text-slate-400">{t(caps.server === "down" ? "agentCaps.down" : "agentCaps.unauthorized")}</p>
+        <>
+          <p className="text-xs text-slate-400">{t(caps.server === "down" ? "agentCaps.down" : "agentCaps.unauthorized")}</p>
+          {caps.failure ? (
+            <p data-adt-failure className="whitespace-pre-wrap break-words text-xs text-[var(--status-warning-text)]">
+              {t("agentCaps.why", { reason: caps.failure })}
+            </p>
+          ) : null}
+        </>
       ) : (
         <dl className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,320px),1fr))] gap-x-8">
           {caps.rows.map((row) => (

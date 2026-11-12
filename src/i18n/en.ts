@@ -151,6 +151,7 @@ export const en: Record<TranslationKey, string> = {
   "agentCaps.noTier": "No — this system is not DEV",
   "agentCaps.noEngine": "No — no such tool yet",
   "agentCaps.down": "The ADT server is not running; the agent cannot reach SAP. Try reconnecting.",
+  "agentCaps.why": "Last start attempt: {reason}",
   "agentCaps.unauthorized": "Port 8787 is held by a server NTT Studio did not start; the agent cannot use it.",
   "systemPanel.addressLabel": "Address",
   "systemPanel.adtUrlLabel": "ADT Address",

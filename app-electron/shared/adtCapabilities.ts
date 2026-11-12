@@ -23,6 +23,8 @@ export interface AdtCapabilities {
   systemUuid: string;
   server: "running" | "down" | "unauthorized";
   rows: CapabilityRow[];
+  /** Sunucu çalışmıyorsa NTT Studio'nun son açma denemesinin sebebi (ekranda "neden"). */
+  failure?: string;
 }
 
 const has = (tools: readonly string[], name: string): CapabilityState => (tools.includes(name) ? "yes" : "no");

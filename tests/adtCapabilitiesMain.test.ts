@@ -70,3 +70,20 @@ describe("Doktor'un 8787 kontrolü", () => {
     expect(doctor).toContain("probeAdtTools(ADT_PORT");
   });
 });
+
+describe("readAdtCapabilities — açılamayan sunucunun sebebi (R5, 2026-11-12)", () => {
+  it("sunucu kapalıysa son açma denemesinin sebebi de dönüyor", async () => {
+    const mgr = await import("../app-electron/main/adtReadonlyServerManager");
+    const { mkdtempSync } = await import("node:fs");
+    const { tmpdir } = await import("node:os");
+    const dir = mkdtempSync(path.join(tmpdir(), "caps-why-"));
+    const free = await serve((_req, res) => res.end());
+    servers.splice(0).forEach((s) => s.close());
+    // Hemen çıkan "sunucu": sebep kaydediliyor.
+    const r = await mgr.startReadonlyServer({ projectDir: dir, scriptPath: "-e", pythonPath: process.execPath, port: free, expectWritable: false });
+    expect(r.ok).toBe(false);
+    const caps = await readAdtCapabilities(free, SAP, "technical-consultant");
+    expect(caps.server).toBe("down");
+    expect(caps.failure).toBeTruthy();
+  }, 30_000);
+});
