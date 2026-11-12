@@ -42,7 +42,8 @@ export default function SystemHeader({
   onConnect,
   onOpenSapLogon,
   onEditManual,
-  onDeleteManual
+  onDeleteManual,
+  connected = null
 }: {
   path: string[];
   service: SapService;
@@ -54,6 +55,11 @@ export default function SystemHeader({
   onOpenSapLogon: () => void;
   onEditManual: () => void;
   onDeleteManual: () => void;
+  /**
+   * Çoklu sistem: bu sistem şu an bağlı mı (odakta olmasa da). Bağlıysa
+   * "client / kullanıcı" ile; değilse hiçbir şey yazılmıyor.
+   */
+  connected?: { client: string; username: string; agentReady: boolean } | null;
 }) {
   const t = useT();
   // Alt satır: olmayan parça hiç yazılmıyor, ayracı da (spec §3.3).
@@ -84,6 +90,18 @@ export default function SystemHeader({
             {service.name}
           </h2>
           {tier && <TierBadge tier={tier} />}
+          {connected && (
+            <span
+              data-testid="system-connected"
+              title={connected.agentReady ? undefined : t("systemPanel.connectedNoAgent")}
+              className="flex shrink-0 items-center gap-1 rounded-sm border border-line bg-control px-1.5 py-0.5 font-mono text-2xs text-slate-300"
+            >
+              <span
+                className={`h-1.5 w-1.5 rounded-full ${connected.agentReady ? "bg-[var(--status-success-text)]" : "bg-[var(--status-warning-text)]"}`}
+              />
+              {t("systemPanel.connectedAs", { client: connected.client, user: connected.username })}
+            </span>
+          )}
           {/* Durum yazısı aynı zamanda "yeniden denetle" düğmesi (spec §3.2).
               Denetim sürerken devre dışı; bu tıklama 30 sn'lik pencereden
               geçmiyor, her seferinde gerçekten denetliyor. */}

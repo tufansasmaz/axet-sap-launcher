@@ -11,11 +11,14 @@ interface Props {
   // o ekrana ait" demek olurdu — oysa mesele tam tersi: üçü de aynı şeye
   // bakıyor (bkz. app-electron/main/activeContext.ts).
   context: ActiveContext;
-  onShowSystem: () => void;
-  onClearSap: () => void;
+  /** Çoklu sistem: hangi sistemin çipi (uuid). */
+  onShowSystem: (uuid: string) => void;
+  onClearSap: (uuid: string) => void;
+  /** Çipe tık odağı o sisteme taşır; yeni sohbet/bölme odaktaki sistemde açılır. */
+  onFocusSap?: (uuid: string) => void;
 }
 
-export default function TitleBar({ context, onShowSystem, onClearSap }: Props) {
+export default function TitleBar({ context, onShowSystem, onClearSap, onFocusSap }: Props) {
   const t = useT();
   const [isMaximized, setIsMaximized] = useState(false);
 
@@ -24,6 +27,8 @@ export default function TitleBar({ context, onShowSystem, onClearSap }: Props) {
     const unsubscribe = window.api.onWindowStateChanged(setIsMaximized);
     return unsubscribe;
   }, []);
+
+  const systems = context.systems?.length ? context.systems : context.sap ? [context.sap] : [];
 
   const handleMinimize = () => window.api.windowMinimize();
   const handleToggleMaximize = async () => {
@@ -56,55 +61,70 @@ export default function TitleBar({ context, onShowSystem, onClearSap }: Props) {
           Temizle düğmesi yalnızca rozetin üstüne gelince ya da odak rozetin
           içindeyken görünüyor (`group`); DOM'da her zaman duruyor, Tab ile
           ulaşılıyor. */}
-      {context.sap && (
+      {/* Çoklu sistem (2026-11-12): her bağlı sistem bir çip. Odaktaki çip
+          işaretli (seçim → lime); çarpı YALNIZ o sistemi keser. */}
+      {systems.length > 0 && (
+        <div className="flex min-w-0 items-center gap-1" style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}>
+        {systems.map((sap) => {
+          const focused = sap.uuid === context.sap?.uuid;
+          const gui = focused ? context.gui : null;
+          return (
         <div
-          className="group flex min-w-0 items-center gap-1.5 rounded-sm border border-line bg-control px-2 py-0.5"
+          key={sap.uuid}
+          aria-current={focused && systems.length > 1 ? "true" : undefined}
+          className={`group flex min-w-0 items-center gap-1.5 rounded-sm border bg-control px-2 py-0.5 ${focused && systems.length > 1 ? "border-accent-500" : "border-line"}`}
           style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
         >
           {/* SAP doğrulandı ama ajanın 8787 sunucusu yoksa yeşil değil: ajan SAP'ye erişemiyor. */}
           <span
-            className={`h-1.5 w-1.5 shrink-0 rounded-full ${context.sap.verified && context.sap.agentReady !== false ? "bg-[var(--status-success-text)]" : "bg-[var(--status-warning-text)]"}`}
+            className={`h-1.5 w-1.5 shrink-0 rounded-full ${sap.verified && sap.agentReady !== false ? "bg-[var(--status-success-text)]" : "bg-[var(--status-warning-text)]"}`}
             title={
-              !context.sap.verified
+              !sap.verified
                 ? t("activeContext.unverified")
-                : context.sap.agentReady === false
-                  ? t("activeContext.noAgent", { reason: context.sap.agentIssue || "-" })
+                : sap.agentReady === false
+                  ? t("activeContext.noAgent", { reason: sap.agentIssue || "-" })
                   : t("activeContext.verified")
             }
           />
           <button
-            onClick={onShowSystem}
-            title={t("activeContext.showSystem", { path: context.sap.customerPath.join(" › ") })}
+            onClick={() => {
+              onFocusSap?.(sap.uuid);
+              onShowSystem(sap.uuid);
+            }}
+            title={t("activeContext.showSystem", { path: sap.customerPath.join(" › ") })}
             className="flex min-w-0 cursor-pointer items-center gap-1.5 font-mono text-xs text-slate-300 hover:text-white"
           >
-            <span className="truncate font-semibold">{context.sap.systemId}</span>
+            <span className="truncate font-semibold">{sap.systemId}</span>
             <span className="shrink-0 text-slate-500">·</span>
             <span className="shrink-0 text-slate-400">
-              {context.sap.client} / {context.sap.username}
+              {sap.client} / {sap.username}
             </span>
           </button>
-          {context.sap.tier && <TierBadge tier={context.sap.tier} />}
+          {sap.tier && <TierBadge tier={sap.tier} />}
           {/* SAP GUI oturumu ayrı bir parça: bağlı sistem ile açık GUI ekranı
               FARKLI şeyler ve aynı anda ikisi de doğru olabilir. */}
-          {context.gui && (
+          {gui && (
             <span
               className="flex shrink-0 items-center gap-1 border-l border-line pl-1.5 text-xs text-slate-400"
               title={t("activeContext.guiSession", {
-                system: context.gui.systemName ?? "?",
-                title: context.gui.title ?? ""
+                system: gui.systemName ?? "?",
+                title: gui.title ?? ""
               })}
             >
               <MonitorPlay size={12} />
-              {context.gui.transaction || context.gui.program || "SAP GUI"}
+              {gui.transaction || gui.program || "SAP GUI"}
             </span>
           )}
           <button
-            onClick={onClearSap}
+            onClick={() => onClearSap(sap.uuid)}
             title={t("activeContext.clear")}
             className="ml-0.5 shrink-0 cursor-pointer rounded-sm p-0.5 text-slate-500 opacity-0 transition hover:bg-active hover:text-slate-200 focus-visible:opacity-100 group-focus-within:opacity-100 group-hover:opacity-100"
           >
             <Unplug size={12} />
           </button>
+        </div>
+          );
+        })}
         </div>
       )}
 

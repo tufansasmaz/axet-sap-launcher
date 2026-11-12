@@ -108,6 +108,8 @@ interface Props {
    * bir sohbete düşürüyordu.
    */
   activeSap: ActiveSapContext | null;
+  /** Çoklu sistem: bütün bağlı sistemler (sekme rozeti sohbetin klasörünün sistemi). */
+  activeSystems?: ActiveSapContext[];
   /**
    * Klavye kısayolları penceresini açar (İş C — 2026-10-17).
    * F1 ve Ctrl+/ bu callback'i çağırıyor; pencere App.tsx'te render ediliyor.
@@ -429,6 +431,7 @@ export default function AxetCodeHome({
   sapChatRequest,
   workDirRequest,
   activeSap,
+  activeSystems,
   onOpenShortcuts,
   onSwitchToChat,
 }: Props) {
@@ -2487,7 +2490,7 @@ export default function AxetCodeHome({
             }
             contextLabel={session.sapLabel}
             contextPath={session.cwd || workspaceDir}
-            contextTier={contextTierFor(session.cwd || workspaceDir, activeSap)}
+            contextTier={contextTierFor(session.cwd || workspaceDir, activeSystems ?? activeSap)}
             onOpenInstructions={
               session.cwd || workspaceDir
                 ? () => setInstructionsCwd(session.cwd || workspaceDir)
@@ -2562,7 +2565,7 @@ export default function AxetCodeHome({
           firstRun={sessionsLoaded && sessions.length === 0}
           contextLabel={effectiveNewBinding?.label ?? null}
           contextPath={effectiveNewBinding?.cwd || workspaceDir}
-          contextTier={contextTierFor(effectiveNewBinding?.cwd || workspaceDir, activeSap)}
+          contextTier={contextTierFor(effectiveNewBinding?.cwd || workspaceDir, activeSystems ?? activeSap)}
           onOpenInstructions={
             effectiveNewBinding?.cwd || workspaceDir
               ? () =>

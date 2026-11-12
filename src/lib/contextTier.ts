@@ -13,8 +13,19 @@ const norm = (p: string) => p.replace(/\\/g, "/").replace(/\/+$/, "").toLowerCas
  */
 export function contextTierFor(
   cwd: string | null | undefined,
-  activeSap: ActiveSapContext | null
+  activeSap: ActiveSapContext | ActiveSapContext[] | null
 ): SystemTier | null {
-  if (!cwd || !activeSap?.projectDir || !activeSap.tier) return null;
-  return norm(cwd) === norm(activeSap.projectDir) ? activeSap.tier : null;
+  // Çoklu sistem (2026-11-12): sohbet hangi bağlı sistemin klasöründeyse onun
+  // kademesi; odaktaki olması gerekmiyor.
+  return contextSystemFor(cwd, activeSap)?.tier ?? null;
+}
+
+/** Sohbetin klasörü hangi bağlı sistemin klasörü; yoksa null. */
+export function contextSystemFor(
+  cwd: string | null | undefined,
+  systems: ActiveSapContext | ActiveSapContext[] | null
+): ActiveSapContext | null {
+  if (!cwd || !systems) return null;
+  const list = Array.isArray(systems) ? systems : [systems];
+  return list.find((s) => s.projectDir && norm(cwd) === norm(s.projectDir)) ?? null;
 }

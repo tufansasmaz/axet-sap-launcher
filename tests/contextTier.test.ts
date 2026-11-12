@@ -21,3 +21,12 @@ describe("contextTierFor", () => {
     expect(contextTierFor("C:/Proj/P01", sap("C:/Proj/P01", null))).toBeNull();
   });
 });
+
+describe("contextTierFor — çoklu sistem", () => {
+  it("sohbetin klasörü odakta OLMAYAN bağlı sistemdeyse onun kademesi", () => {
+    const list = [sap("C:/Proj/D01", "DEV"), sap("C:/Proj/P01", "PRD")];
+    expect(contextTierFor("c:\\proj\\d01", list)).toBe("DEV");
+    expect(contextTierFor("C:/Proj/P01", list)).toBe("PRD");
+    expect(contextTierFor("C:/Proj/Q01", list)).toBeNull();
+  });
+});

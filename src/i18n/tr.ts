@@ -86,6 +86,8 @@ export const tr = {
   "systemPanel.emptyList": "Henüz sistem yok",
   "systemPanel.editTitle": "Bu manuel sistemi düzenle",
   "systemPanel.deleteTitle": "Bu manuel sistemi sil",
+  "systemPanel.connectedAs": "Bağlı · {client} / {user}",
+  "systemPanel.connectedNoAgent": "SAP'ye bağlı ama ajanın ADT sunucusu açılamadı",
   "systemPanel.lastConnected": "Son bağlantı: {time}",
   "systemPanel.neverConnected": "Henüz bağlanılmadı",
   "systemPanel.tierRow": "Ortam",

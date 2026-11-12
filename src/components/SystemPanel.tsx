@@ -5,6 +5,7 @@ import SystemHeader from "./SystemHeader";
 import SystemInfoList from "./SystemInfoList";
 import SystemNotes from "./SystemNotes";
 import AgentCapabilities from "./AgentCapabilities";
+import { useActiveContext } from "../lib/useActiveContext";
 import WriteHistory from "./WriteHistory";
 import { useSystemComment } from "./useSystemComment";
 import { Button } from "../ui/Button";
@@ -59,6 +60,7 @@ export default function SystemPanel({
   onAddSystem
 }: Props) {
   const t = useT();
+  const activeContext = useActiveContext();
   const note = useSystemComment(selection);
   // Notun şifre maskesi için sistemin bilinen kullanıcı adı ("kullanıcı
   // satırının altındaki satır" işareti, bkz. noteSecrets.ts). Şifre alınmıyor.
@@ -122,6 +124,9 @@ export default function SystemPanel({
   const state = connectivity[service.uuid] ?? "unknown";
   const tier = resolveTier(service, tierOverrides);
   const explicitTier = tierOverrides[service.uuid] ?? null;
+  // Logon'da sistem başına durum: odaktaki değil, BAĞLI olan her sistem.
+  const live = (activeContext.systems ?? (activeContext.sap ? [activeContext.sap] : [])).find((s) => s.uuid === service.uuid);
+  const connectedInfo = live ? { client: live.client, username: live.username, agentReady: live.verified && live.agentReady !== false } : null;
 
   return (
     <div className="h-full overflow-y-auto">
@@ -130,6 +135,7 @@ export default function SystemPanel({
         className="animate-panel-fade-in mx-auto flex min-h-full w-full max-w-[1280px] flex-col gap-6 px-8 py-8"
       >
         <SystemHeader
+          connected={connectedInfo}
           path={path}
           service={service}
           state={state}

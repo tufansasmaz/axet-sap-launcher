@@ -59,6 +59,8 @@ export interface ChatSidebarProps {
   connectivity: Record<string, ConnectivityState>;
   tierOverrides: Record<string, SystemTier>;
   activeSap: ActiveSapContext | null;
+  /** Çoklu sistem: bütün bağlı sistemler ("bağlı" işareti her biri için). */
+  activeSystems?: ActiveSapContext[];
   onOpenSapLauncher: () => void;
   onQuickConnectSap: (path: string[], service: SapService, itemUuid: string) => void;
 }
@@ -68,6 +70,7 @@ export default function ChatSidebar({
   connectivity,
   tierOverrides,
   activeSap,
+  activeSystems,
   onOpenSapLauncher,
   onQuickConnectSap,
 }: ChatSidebarProps) {
@@ -697,7 +700,7 @@ export default function ChatSidebar({
               // uygulamanın her yerinde "seçili/aktif" demek, sağlık
               // yeşili (`--status-success-text`) ise noktanın işi. İki
               // anlam iki renkte kalıyor.
-              const connected = activeSap != null && activeSap.uuid === entry.service.uuid;
+              const connected = (activeSap != null && activeSap.uuid === entry.service.uuid) || Boolean(activeSystems?.some((s) => s.uuid === entry.service.uuid));
               const connect = () =>
                 onQuickConnectSap(
                   entry.path,

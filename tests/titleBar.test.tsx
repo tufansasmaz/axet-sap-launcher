@@ -40,13 +40,34 @@ const SAP: ActiveSapContext = {
 function mount(context: ActiveContext) {
   const onShowSystem = vi.fn();
   const onClearSap = vi.fn();
+  const onFocusSap = vi.fn();
   render(
     <LanguageProvider language="tr">
-      <TitleBar context={context} onShowSystem={onShowSystem} onClearSap={onClearSap} />
+      <TitleBar context={context} onShowSystem={onShowSystem} onClearSap={onClearSap} onFocusSap={onFocusSap} />
     </LanguageProvider>
   );
-  return { onShowSystem, onClearSap };
+  return { onShowSystem, onClearSap, onFocusSap };
 }
+
+const PRD: ActiveSapContext = { ...SAP, uuid: "u2", systemId: "S4P", customerPath: ["Müşteri", "S4P"], tier: "PRD", projectDir: "C:\\q" };
+
+describe("TitleBar — çoklu sistem", () => {
+  it("her bağlı sistem için bir çip; çarpı yalnız o sistemi kesiyor; çipe tık odağı taşıyor", () => {
+    const { onClearSap, onFocusSap, onShowSystem } = mount({ sap: PRD, gui: null, systems: [SAP, PRD] });
+    expect(screen.getByText("S4D")).toBeTruthy();
+    expect(screen.getByText("S4P")).toBeTruthy();
+    const clears = screen.getAllByTitle("Bağlantıyı kes (bu sistemin ADT sunucusu ve RFC köprüsü kapanır)");
+    expect(clears).toHaveLength(2);
+    fireEvent.click(clears[0]);
+    expect(onClearSap).toHaveBeenCalledWith("u1");
+    fireEvent.click(screen.getByTitle("Sistemi göster · Müşteri › S4D"));
+    expect(onFocusSap).toHaveBeenCalledWith("u1");
+    expect(onShowSystem).toHaveBeenCalledWith("u1");
+    // Odaktaki çip işaretli (seçim), öteki değil.
+    expect(screen.getByText("S4P").closest(".group")!.getAttribute("aria-current")).toBe("true");
+    expect(screen.getByText("S4D").closest(".group")!.getAttribute("aria-current")).toBeNull();
+  });
+});
 
 describe("TitleBar", () => {
   it("ana ekranla bir bütün: alt çizgi yok, zemin uygulamanınki", () => {
@@ -85,7 +106,7 @@ describe("TitleBar", () => {
     expect(badge).not.toBeNull();
     expect(badge!.contains(screen.getByTitle("Sistemi göster · Müşteri › S4D"))).toBe(true);
     fireEvent.click(clear);
-    expect(onClearSap).toHaveBeenCalledTimes(1);
+    expect(onClearSap).toHaveBeenCalledWith("u1");
   });
 
   it("imza küçük ve soluk; pencere düğmeleri hover zemininde, kapatma kırmızı", () => {

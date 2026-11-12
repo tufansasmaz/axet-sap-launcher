@@ -80,6 +80,8 @@ export const en: Record<TranslationKey, string> = {
   "systemPanel.emptyList": "No systems yet",
   "systemPanel.editTitle": "Edit this manual system",
   "systemPanel.deleteTitle": "Delete this manual system",
+  "systemPanel.connectedAs": "Connected · {client} / {user}",
+  "systemPanel.connectedNoAgent": "Connected to SAP but the agent's ADT server did not start",
   "systemPanel.lastConnected": "Last connected: {time}",
   "systemPanel.neverConnected": "Never connected",
   "systemPanel.tierRow": "Environment",

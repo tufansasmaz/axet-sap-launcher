@@ -39,15 +39,17 @@ function stateKey(row: CapabilityRow): TranslationKey {
 export default function AgentCapabilities({ systemUuid }: { systemUuid: string }) {
   const t = useT();
   const context = useActiveContext();
-  const connected = context.sap?.uuid === systemUuid;
-  const connectedAt = connected ? context.sap?.connectedAt : null;
+  // Çoklu sistem: odakta olmasa da bağlı her sistemin öbeği kendi sunucusundan.
+  const system = (context.systems ?? (context.sap ? [context.sap] : [])).find((s) => s.uuid === systemUuid) ?? null;
+  const connected = system !== null;
+  const connectedAt = system?.connectedAt ?? null;
   const [caps, setCaps] = useState<AdtCapabilities | null>(null);
 
   useEffect(() => {
     setCaps(null);
     if (!connectedAt) return;
     let disposed = false;
-    window.api.getAdtCapabilities().then((next) => {
+    window.api.getAdtCapabilities(systemUuid).then((next) => {
       if (!disposed && next?.systemUuid === systemUuid) setCaps(next);
     });
     return () => {

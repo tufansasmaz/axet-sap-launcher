@@ -558,14 +558,21 @@ export default function App() {
   // geç ve bağlı sistemi seç. `pendingSelectUuid` yolu kullanılıyor çünkü
   // rozet yalnızca uuid'yi biliyor — ağaçtaki karşılığını (yol + service)
   // zaten var olan efekt buluyor.
-  const handleShowActiveSystem = useCallback(() => {
-    if (!activeContext.sap) return;
+  const handleShowActiveSystem = useCallback((uuid: string) => {
     setActivity("sapLauncher");
-    setPendingSelectUuid(activeContext.sap.uuid);
-  }, [activeContext.sap?.uuid]);
+    setPendingSelectUuid(uuid);
+  }, []);
 
-  const handleClearActiveSap = useCallback(() => {
-    window.api.clearActiveSapContext().catch(() => {
+  // Çoklu sistem: çipe tık odağı taşır (yeni sohbet/bölme o sistemde açılır).
+  const handleFocusSap = useCallback((uuid: string) => {
+    window.api.focusSapSystem(uuid).catch(() => {
+      // odak değişmezse eski çip işaretli kalır
+    });
+  }, []);
+
+  // Yalnız o sistem kesilir; ötekiler bağlı kalır.
+  const handleClearActiveSap = useCallback((uuid: string) => {
+    window.api.clearActiveSapContext(uuid).catch(() => {
       // bağlam yayını zaten main'den geliyor; temizleme başarısızsa rozet kalır
     });
   }, []);
@@ -1058,7 +1065,7 @@ export default function App() {
         <BoardOpenListener onShow={handleShowAgents} />
         <TeamLeadListener />
         <div className="flex h-screen flex-col overflow-hidden">
-        <TitleBar context={activeContext} onShowSystem={handleShowActiveSystem} onClearSap={handleClearActiveSap} />
+        <TitleBar context={activeContext} onShowSystem={handleShowActiveSystem} onClearSap={handleClearActiveSap} onFocusSap={handleFocusSap} />
         <div className="flex min-h-0 flex-1 overflow-hidden">
         <Sidebar
             mode={listMode}
@@ -1093,6 +1100,7 @@ export default function App() {
                 connectivity={connectivity}
                 tierOverrides={config?.systemTiers ?? {}}
                 activeSap={activeContext.sap}
+                activeSystems={activeContext.systems}
                 onOpenSapLauncher={() => setActivity("sapLauncher")}
                 onQuickConnectSap={handleQuickConnectSap}
               />
@@ -1167,6 +1175,7 @@ export default function App() {
                 sapChatRequest={sapChatRequest}
                 workDirRequest={workDirRequest}
                 activeSap={activeContext.sap}
+                activeSystems={activeContext.systems}
                 onOpenShortcuts={() => setShortcutsOpen(true)}
                 onSwitchToChat={() => setActivity("axetCode")}
               />
