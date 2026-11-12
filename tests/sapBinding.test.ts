@@ -84,8 +84,8 @@ describe("launcher: `.conn_adt` ve sunucunun ortamı aynı nesneden", () => {
     expect(launcher.match(/sapBindingFor\(/g)?.length).toBe(1);
     expect(launcher).toContain("const sapBinding = sapBindingFor(credentials, finalUrl, rfcBridge?.bridgePort);");
     expect(launcher).toContain("buildConnAdt(req, credentials, sapBinding, finalUrl,");
-    expect(launcher).toMatch(/attemptReadonlyServerAutoStart\([\s\S]*?\}, systemTier \?\? "QA", sapBinding\);/);
-    expect(launcher).toMatch(/startReadonlyServer\(\{[\s\S]*?tier,\s*binding\s*\}\)/);
+    expect(launcher).toMatch(/attemptReadonlyServerAutoStart\([\s\S]*?\}, systemTier \?\? "QA", sapBinding, system\.token\);/);
+    expect(launcher).toMatch(/startReadonlyServer\(\{[\s\S]*?tier,\s*binding,\s*token\s*\}\)/);
   });
 
   it("launcher onay token'ını ya da ADT token'ını kendisi taşımıyor", () => {

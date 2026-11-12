@@ -134,9 +134,12 @@ describe("RFC koprusu: sistem degistirme", () => {
     expect(await health(portB)).toBe("sistemF");
   }, 30_000);
 
-  it("baglanma akisi router'siz sistemde oteki kopruleri kapatiyor", () => {
+  // Coklu sistem (2026-11-12): baglanma ARTIK oteki sistemlerin koprulerini
+  // kapatmiyor; yalniz bu sistemin artik gerekmeyen koprusu kapaniyor.
+  it("baglanma akisi oteki sistemlerin koprulerine dokunmuyor, yalniz kendi eski koprusunu kapatiyor", () => {
     const launcher = readFileSync(path.join(__dirname, "..", "app-electron", "main", "launcher.ts"), "utf8");
-    expect(launcher).toContain("stopRfcBridgesExcept(projectDir)");
+    expect(launcher).not.toContain("stopRfcBridgesExcept(");
+    expect(launcher).toContain("if (!rfcBridge) stopRfcBridge(projectDir);");
   });
 
   it("stopRfcBridge portu birakir", async () => {

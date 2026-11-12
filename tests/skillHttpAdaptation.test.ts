@@ -27,7 +27,8 @@ function description(skill: string): string {
 /** Frontmatter'dan sonraki ilk iki bin karakter — ajanın ilk okuduğu yer. */
 function head(skill: string): string {
   const end = skill.indexOf("\n---\n", 4);
-  return skill.slice(end, end + 2000);
+  // Çoklu sistem notu (2026-11-12) bloğu uzattı.
+  return skill.slice(end, end + 3200);
 }
 
 describe.each(["sap-adt", "sap-adt-readonly"])("%s — ajan ADT'ye HTTP'den gidiyor", (name) => {

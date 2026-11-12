@@ -103,7 +103,7 @@ describe.skipIf(process.platform !== "win32")("8787'yi tutan, bizim anahtarımı
     getAdtHttpToken();
     const port = await freePort();
     // Ajanın elle başlattığı salt okunur sunucu: ortamı miras, kapılar yok.
-    const stray = spawn(process.execPath, [script, "--port", String(port)], { env: { ...process.env }, stdio: "ignore", windowsHide: true });
+    const stray = spawn(process.execPath, [script, "--port", String(port)], { env: { ...process.env, ABAP_HTTP_TOKEN: getAdtHttpToken() }, stdio: "ignore", windowsHide: true });
     strays.push(stray);
     await waitUp(port);
     expect(await tools(port)).not.toContain("axet_teslim");
@@ -122,7 +122,7 @@ describe.skipIf(process.platform !== "win32")("8787'yi tutan, bizim anahtarımı
 
   it("salt okunurda da: kapısız (19 araçlık) süreç yerine tam yüzey açılıyor", async () => {
     const port = await freePort();
-    const stray = spawn(process.execPath, [script, "--port", String(port)], { env: { ...process.env }, stdio: "ignore", windowsHide: true });
+    const stray = spawn(process.execPath, [script, "--port", String(port)], { env: { ...process.env, ABAP_HTTP_TOKEN: getAdtHttpToken() }, stdio: "ignore", windowsHide: true });
     strays.push(stray);
     await waitUp(port);
     const r = await startReadonlyServer({ projectDir: dir, scriptPath: script, pythonPath: process.execPath, port, expectWritable: false });
