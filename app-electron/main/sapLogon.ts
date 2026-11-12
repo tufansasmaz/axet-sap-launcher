@@ -1,4 +1,5 @@
-import { spawn, execFileSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
+import { spawnDetached } from "./detachedSpawn";
 import { existsSync, writeFileSync, mkdtempSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -411,12 +412,12 @@ Remove-Item -LiteralPath "${dir.replace(/\\/g, "\\\\")}" -Force -Recurse -ErrorA
     // ölüyordu. `cmd.exe /c start` Windows'un kendi resmi "yeni, bağımsız
     // bir process başlat" mekanizması (görev çubuğu/başlatıcıların da
     // kullandığı), Job Object'ten ayrışmayı garantiliyor.
-    const watcher = spawn(
+    spawnDetached(
       "cmd.exe",
       ["/c", "start", "", "/min", "powershell.exe", "-NoProfile", "-WindowStyle", "Hidden", "-ExecutionPolicy", "Bypass", "-File", scriptPath],
-      { detached: true, stdio: "ignore", windowsHide: true }
+      { stdio: "ignore", windowsHide: true },
+      (err) => console.error("[sapLogon] foreground watcher failed to start", err)
     );
-    watcher.unref();
   } catch (err) {
     console.error("[sapLogon] foreground watcher failed to start", err);
   }
@@ -461,17 +462,15 @@ export function openInSapLogon(service: SapService, sapShcutOverride?: string | 
   // önce o kilidin temizlenmiş olması gerekiyor.
   const preflight = preflightCleanupSapGui();
 
-  try {
-    const child = spawn(sapGuiPath, [route.routeString, route.instanceNr], {
-      detached: true,
-      stdio: "ignore",
-      windowsHide: false
-    });
-    child.unref();
-    spawnForegroundWatcher(preflight.baseline);
-    return { ok: true, reason: "opened" };
-  } catch (err) {
+  // Başlatma hatası eşzamansız da gelebilir (yetki/politika engeli);
+  // dinleyicisiz bir `error` olayı yığın izi penceresi açıyordu (bkz.
+  // detachedSpawn.ts).
+  let spawnError = "";
+  const started = spawnDetached(sapGuiPath, [route.routeString, route.instanceNr], { stdio: "ignore", windowsHide: false }, (err) => {
+    spawnError = err.message;
     console.error("[sapLogon] spawn failed", err);
-    return { ok: false, reason: "spawnError", detail: (err as Error).message };
-  }
+  });
+  if (!started) return { ok: false, reason: "spawnError", detail: spawnError };
+  spawnForegroundWatcher(preflight.baseline);
+  return { ok: true, reason: "opened" };
 }
