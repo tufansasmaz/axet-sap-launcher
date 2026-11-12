@@ -1958,6 +1958,21 @@ function registerIpc(): void {
     }
   });
 
+  // Ajanlar > Dosyalar (kararlilik-2 R7): ekibin proje klasörü. Klasör YALNIZ
+  // config'teki alan kaydından okunuyor (changes:openRoot ile aynı yol);
+  // renderer yol veremiyor. Okuma izni o köke veriliyor ki gezgin/önizleme
+  // (fs:* kanalları, isPathAllowed) proje klasörü dışındaki ekip köklerini de
+  // açabilsin — kullanıcının kendi tanımladığı alan klasörü.
+  ipcMain.handle("agents:filesRoot", (event, workspaceId: unknown): string | null => {
+    if (!fromMain(event)) return null;
+    const ws = changesWorkspace(workspaceId);
+    if (!ws) return null;
+    const cfg = loadConfig();
+    const info = boardWorkspaceInfo(cfg.terminalWorkspaces, cfg.axetWorkspaceDir, ws);
+    if (!info?.cwd?.trim()) return null;
+    return grantUserRoot(info.cwd);
+  });
+
   ipcMain.handle("changes:openRoot", async (event, workspaceId: unknown) => {
     if (!fromMain(event)) return false;
     const ws = changesWorkspace(workspaceId);

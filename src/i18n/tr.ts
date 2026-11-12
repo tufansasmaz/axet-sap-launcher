@@ -759,6 +759,7 @@ export const tr = {
   "fileViewer.saveError": "Dosya kaydedilemedi.",
   "chatFiles.title": "Dosyalar",
   "chatFiles.hide": "Dosya panelini gizle",
+  "chatFiles.openInExplorer": "Klasörü Gezgin'de aç",
   "chatFiles.closeFile": "Dosyayı kapat",
 
   "statusDot.unknown": "Bilinmiyor",
@@ -1623,6 +1624,11 @@ export const tr = {
   "changes.statusModified": "Değişti",
   "changes.statusDeleted": "Silindi",
   "changes.view": "Değişiklikler",
+  // Ajanlar > Dosyalar (ekibin proje klasörü, salt okunur önizleme).
+  "agentFiles.view": "Dosyalar",
+  "agentFiles.title": "Proje dosyaları",
+  "agentFiles.openInExplorer": "Gezgin'de aç",
+  "agentFiles.noRoot": "Bu ekibin proje klasörü bulunamadı. Üstteki depo çipinden bir klasör seç.",
   "changes.label": "Değişiklikler görünümü",
   "changes.title": "Değişiklikler",
   "changes.pendingCount": "{count} bekliyor",

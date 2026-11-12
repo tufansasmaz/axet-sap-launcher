@@ -1,10 +1,10 @@
 // Görünüm rayı: içeriğin üstünde yüzen, sol kenarda ortalı yarı saydam düğme grubu.
 // Kapalıyken yalnız seçili görünümün tek yuvarlak düğmesi; üzerine gelince ya da
-// klavye odağında köşeli panel olarak açılır (Pano | Raporlar | Terminal | Ofis | Ajanlar | Görevler | Değişiklikler |
+// klavye odağında köşeli panel olarak açılır (Pano | Raporlar | Terminal | Ofis | Ajanlar | Görevler | Değişiklikler | Dosyalar |
 // Tarayıcı | Bellek | Araçlar — Ofis Terminal'in altında). Seçili lime ışıltı (lime yalnız seçim); etiket
 // ipucunda ve aria-label'da. Klavye: yukarı/aşağı ok, Home/End; yalnız seçili düğme sekme sırasında.
 import { useRef, type KeyboardEvent } from "react";
-import { BookOpen, Building2, ClipboardList, GitBranch, Globe, FileText, LayoutDashboard, Terminal, Users, Wrench, type LucideIcon } from "lucide-react";
+import { BookOpen, Building2, ClipboardList, FolderOpen, GitBranch, Globe, FileText, LayoutDashboard, Terminal, Users, Wrench, type LucideIcon } from "lucide-react";
 import { useT } from "../i18n";
 import type { TranslationKey } from "../i18n/tr";
 import { useTerminalStore } from "../stores/terminalStoreContext";
@@ -21,7 +21,7 @@ const COUNT_KEY: Partial<Record<WorkspaceView, TranslationKey>> = {
 };
 
 // Tur 3: Pano (genel bakış) başta, Araçlar (motorlar) sonda. Ofis Terminal'in hemen altında.
-export const VIEW_TABS: readonly WorkspaceView[] = ["overview", "reports", "panes", "office", "manage", "board", "changes", "browser", "memory", "tools"];
+export const VIEW_TABS: readonly WorkspaceView[] = ["overview", "reports", "panes", "office", "manage", "board", "changes", "files", "browser", "memory", "tools"];
 
 const VIEW_TAB_KEY: Record<WorkspaceView, TranslationKey> = {
   overview: "overview.view",
@@ -32,6 +32,7 @@ const VIEW_TAB_KEY: Record<WorkspaceView, TranslationKey> = {
   board: "tabs.tasks",
   office: "office.view",
   changes: "changes.view",
+  files: "agentFiles.view",
   browser: "browser.view",
   memory: "memory.view"
 };
@@ -45,6 +46,7 @@ const VIEW_TAB_ICON: Record<WorkspaceView, LucideIcon> = {
   board: ClipboardList,
   office: Building2,
   changes: GitBranch,
+  files: FolderOpen,
   browser: Globe,
   memory: BookOpen
 };

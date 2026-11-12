@@ -702,6 +702,7 @@ export const en: Record<TranslationKey, string> = {
   "fileViewer.saveError": "Could not save the file.",
   "chatFiles.title": "Files",
   "chatFiles.hide": "Hide the file panel",
+  "chatFiles.openInExplorer": "Open folder in Explorer",
   "chatFiles.closeFile": "Close file",
 
   "statusDot.unknown": "Unknown",
@@ -1536,6 +1537,10 @@ export const en: Record<TranslationKey, string> = {
   "changes.statusModified": "Modified",
   "changes.statusDeleted": "Deleted",
   "changes.view": "Changes",
+  "agentFiles.view": "Files",
+  "agentFiles.title": "Project files",
+  "agentFiles.openInExplorer": "Open in Explorer",
+  "agentFiles.noRoot": "This team's project folder was not found. Pick a folder from the repo chip above.",
   "changes.label": "Changes view",
   "changes.title": "Changes",
   "changes.pendingCount": "{count} pending",

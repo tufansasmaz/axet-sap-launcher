@@ -236,6 +236,7 @@ const api = {
     ipcRenderer.invoke("changes:revert", workspaceId, checkpointId, paths),
   changesInitRepo: (workspaceId: string): Promise<ChangesCommandResult> => ipcRenderer.invoke("changes:initRepo", workspaceId),
   changesOpenRoot: (workspaceId: string): Promise<boolean> => ipcRenderer.invoke("changes:openRoot", workspaceId),
+  agentsFilesRoot: (workspaceId: string): Promise<string | null> => ipcRenderer.invoke("agents:filesRoot", workspaceId),
   // Akış geçmişi ve ekip köprüsü (Tur 4).
   flowLoad: (workspaceId: string): Promise<StoredFlowEvent[]> => ipcRenderer.invoke("flow:load", workspaceId),
   flowSave: (workspaceId: string, events: StoredFlowEvent[]): Promise<boolean> => ipcRenderer.invoke("flow:save", workspaceId, events),

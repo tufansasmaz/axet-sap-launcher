@@ -83,7 +83,7 @@ export function readVerifyCommands(raw: unknown): string[] {
  * alan yine açılır, varsayılan görünümde (Ofis; ajanlar-yeniden §2). İleri sürümün
  * yazdığı değer de böyle düşer. "panes" artık kayda giriyor: varsayılan o değil. */
 export function readWorkspaceView(raw: unknown): WorkspaceView | undefined {
-  return raw === "overview" || raw === "reports" || raw === "panes" || raw === "board" || raw === "office" || raw === "changes" || raw === "browser" || raw === "memory" || raw === "tools" || raw === "manage"
+  return raw === "overview" || raw === "reports" || raw === "panes" || raw === "board" || raw === "office" || raw === "changes" || raw === "files" || raw === "browser" || raw === "memory" || raw === "tools" || raw === "manage"
     ? raw
     : undefined;
 }

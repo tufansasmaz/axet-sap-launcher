@@ -195,6 +195,7 @@ export interface AxetApi {
   changesRevert: (workspaceId: string, checkpointId: string, paths: string[]) => Promise<RevertResult>;
   changesInitRepo: (workspaceId: string) => Promise<ChangesCommandResult>;
   changesOpenRoot: (workspaceId: string) => Promise<boolean>;
+  agentsFilesRoot: (workspaceId: string) => Promise<string | null>;
   onChangesChanged: (callback: (state: ChangesState) => void) => () => void;
   flowLoad: (workspaceId: string) => Promise<StoredFlowEvent[]>;
   flowSave: (workspaceId: string, events: StoredFlowEvent[]) => Promise<boolean>;

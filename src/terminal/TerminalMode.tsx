@@ -21,6 +21,7 @@ import AddAgentDialog from "../agents/AddAgentDialog";
 import BoardView from "../board/BoardView";
 import OfficeView from "../office/OfficeView";
 import ChangesView from "../changes/ChangesView";
+import FilesView from "../agents/FilesView";
 import { ChangesFocusProvider } from "../changes/changesFocus";
 import BrowserView from "../browser/BrowserView";
 import ViewRail from "../agents/ViewRail";
@@ -155,6 +156,11 @@ export default function TerminalMode({ addRequest = null }: { addRequest?: AddRe
           {state.phase === "ready" && active && view === "memory" && (
             <div className="absolute inset-0">
               <MemoryBrain key={active.id} workspace={active} />
+            </div>
+          )}
+          {state.phase === "ready" && active && view === "files" && (
+            <div className="absolute inset-0">
+              <FilesView key={active.id} workspace={active} visible={state.visible} />
             </div>
           )}
           {state.phase === "ready" && active && view === "changes" && (

@@ -36,10 +36,10 @@ function setup(view: TerminalWorkspace["view"], language: "tr" | "en" = "tr", co
 const rail = () => screen.getByRole("tablist", { name: "Görünüm" });
 
 describe("ViewRail", () => {
-  it("on sekme alt alta: Pano başta, Ofis Terminal'in altında, Bellek ve Araçlar sonda; dikey, içeriğin üstünde yüzüyor", () => {
+  it("on bir sekme alt alta: Pano başta, Dosyalar Değişiklikler'in altında, Ofis Terminal'in altında, Bellek ve Araçlar sonda; dikey, içeriğin üstünde yüzüyor", () => {
     setup("office");
     const labels = screen.getAllByRole("tab").map((t) => t.getAttribute("aria-label"));
-    expect(labels).toEqual(["Pano", "Raporlar", "Terminal", "Ofis", "Ajan yönetimi", "Görevler", "Değişiklikler", "Tarayıcı", "Bellek", "Araçlar"]);
+    expect(labels).toEqual(["Pano", "Raporlar", "Terminal", "Ofis", "Ajan yönetimi", "Görevler", "Değişiklikler", "Dosyalar", "Tarayıcı", "Bellek", "Araçlar"]);
     expect(rail().getAttribute("aria-orientation")).toBe("vertical");
     expect(rail().className.split(" ")).toEqual(expect.arrayContaining(["flex-col", "absolute", "rounded-full", "hover:rounded-md"]));
     // Etiket ipucunda: her düğmenin title'ı var.
