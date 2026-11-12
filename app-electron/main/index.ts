@@ -1402,7 +1402,11 @@ function registerIpc(): void {
         tier: config.systemTiers?.[req.service.uuid] ?? null,
         projectDir: result.projectDir,
         connectedAt: new Date().toISOString(),
-        verified: result.verified
+        verified: result.verified,
+        // 8787 açılmadıysa rozet "doğrulandı" demesin (kararlılık 3, 2026-11-12).
+        ...(result.agentAccess && !result.agentAccess.ok
+          ? { agentReady: false, agentIssue: (result.agentAccess.reason ?? "").slice(0, 300) }
+          : {})
       });
     }
     return result;

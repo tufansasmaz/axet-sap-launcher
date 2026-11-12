@@ -20,6 +20,7 @@ import { startRfcBridge, stopRfcBridgesExcept } from "./rfcBridgeManager";
 import { isRouterPermissionDeniedMessage } from "./sapRouter";
 import { startReadonlyServer } from "./adtReadonlyServerManager";
 import { appLog } from "./appLog";
+import { withAgentAccess } from "./connectAgentAccess";
 import { sapBindingFor, type SapBinding } from "./sapBinding";
 import { closeAllWriteSessions, closeWriteSession, openWriteSession } from "./sapWrite/server";
 import type { Identity } from "./sapWrite/policy";
@@ -299,6 +300,8 @@ interface ReadonlyServerOutcome {
   started: boolean;
   alreadyRunning: boolean;
   detailNote: string;
+  /** Başlatılamadıysa kullanıcıya gösterilecek sebep (bağlantı sonucu ve rozet için). */
+  failure?: string;
 }
 
 // `.conn_adt` yazıldıktan (ve varsa RFC bridge ayağa kalktıktan) SONRA
@@ -383,7 +386,8 @@ async function attemptReadonlyServerAutoStart(
       return {
         started: false,
         alreadyRunning: false,
-        detailNote: `${label} başlatılmadı: NTT Studio'nun onay ucu açılamadı (${(err as Error).message}). DEV'e yazma onaysız açılmaz; sisteme yeniden bağlan.`
+        detailNote: `${label} başlatılmadı: NTT Studio'nun onay ucu açılamadı (${(err as Error).message}). DEV'e yazma onaysız açılmaz; sisteme yeniden bağlan.`,
+        failure: (err as Error).message
       };
     }
   }
@@ -410,7 +414,8 @@ async function attemptReadonlyServerAutoStart(
     return {
       started: false,
       alreadyRunning: false,
-      detailNote: `${label} otomatik başlatılamadı: ${startResult.message}`
+      detailNote: `${label} otomatik başlatılamadı: ${startResult.message}`,
+      failure: startResult.message
     };
   }
 
@@ -1333,18 +1338,21 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
   }
 
   const skillNote = skillInstall.toolkitRoot ? skillNoteFor(language, skillCountForNotice(skillInstall)) : "";
+  // SAP'ye ulaşıldı ama 8787 açılmadıysa sonuç bunu söylemeli (rozet, ilk balon).
+  const finish = (r: ConnectResult): ConnectResult =>
+    withAgentAccess(r, readonlyOutcome ? { started: readonlyOutcome.started, failure: readonlyOutcome.failure ?? readonlyOutcome.detailNote } : null, language);
 
   if (rfcBridge && rfcOutcome) {
     if (rfcOutcome.credentialsInvalid) {
-      return {
+      return finish({
         ok: false,
         verified: false,
         projectDir,
         message: rfcOutcome.verifyMessage,
         trustedCertificates: trustedCertificatesUpdate
-      };
+      });
     }
-    return {
+    return finish({
       ok: true,
       verified: rfcOutcome.verified,
       projectDir,
@@ -1355,12 +1363,12 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
         : connectMsg(language, "rfcBridgeAutoStartFailed", { skillNote, detail: rfcOutcome.detailNote }),
       trustedCertificates: trustedCertificatesUpdate,
       effectiveClient: credentials.client
-    };
+    });
   }
 
   if (samlSystem) {
     if (samlVerified) {
-      return {
+      return finish({
         ok: true,
         verified: true,
         projectDir,
@@ -1370,19 +1378,19 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
         }),
         trustedCertificates: trustedCertificatesUpdate,
         effectiveClient: credentials.client
-      };
+      });
     }
-    return {
+    return finish({
       ok: true,
       verified: false,
       projectDir,
       message: connectMsg(language, "samlSetupNeeded", { skillNote, detail: samlFailureDetail }),
       trustedCertificates: trustedCertificatesUpdate,
       effectiveClient: credentials.client
-    };
+    });
   }
 
-  return {
+  return finish({
     ok: true,
     verified: true,
     projectDir,
@@ -1391,5 +1399,5 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
       : connectMsg(language, "verifiedButSelfTestFailed", { skillNote, url: finalUrl }),
     trustedCertificates: trustedCertificatesUpdate,
     effectiveClient: credentials.client
-  };
+  });
 }

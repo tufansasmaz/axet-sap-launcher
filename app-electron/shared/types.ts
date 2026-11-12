@@ -612,6 +612,11 @@ export interface ConnectResult {
   effectiveClient?: string;
   /** Doluysa bağlantı kimlik bilgisi gönderilmeden durdu; renderer onay soruyor. */
   certPrompt?: CertTrustPrompt;
+  /**
+   * Ajanın SAP'ye eriştiği 8787 sunucusu. `ok: false` → SAP'ye ulaşıldı ama
+   * ajan ulaşamıyor (rozet ve ilk balon uyarı tonunda). Yoksa denenmedi.
+   */
+  agentAccess?: { ok: boolean; reason?: string };
 }
 
 export interface CredentialDefaults {
@@ -646,6 +651,13 @@ export interface ActiveSapContext {
   connectedAt: string;
   /** Bağlantı gerçekten doğrulanabildi mi (bkz. ConnectResult.verified). */
   verified: boolean;
+  /**
+   * Ajanın SAP'ye eriştiği 8787 sunucusu açıldı mı (ConnectResult.agentAccess).
+   * `false` → SAP'ye ulaşıldı ama ajan ulaşamıyor; yoksa bilinmiyor/hazır.
+   */
+  agentReady?: boolean;
+  /** `agentReady === false` ise sebebi (rozetin ipucunda). */
+  agentIssue?: string;
 }
 
 /** SAP GUI Scripting ekranının o an baktığı canlı oturum. Tek yazarı o ekran. */

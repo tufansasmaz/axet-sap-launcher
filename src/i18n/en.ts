@@ -33,6 +33,7 @@ export const en: Record<TranslationKey, string> = {
   "app.skippedFoldersNote": " ({count} folder(s) skipped, only files can be added)",
   "app.filesImported": "{count} file(s) added{note}",
   "connectNotice.verified": "I'm connected to **{system}**.",
+  "connectNotice.verifiedNoAgent": "**{system}** was reached, but **I (the agent) cannot reach SAP**: the ADT server could not start. The reason is below; fix it and reconnect to the system.",
   "connectNotice.unverified": "I reached **{system}**, but authentication did not complete.",
   "connectNotice.identity": "Client `{client}` · user `{user}`",
   "connectNotice.whatNext": "What would you like to do?",
@@ -60,6 +61,7 @@ export const en: Record<TranslationKey, string> = {
   "titleBar.close": "Close",
 
   "activeContext.verified": "Connection verified",
+  "activeContext.noAgent": "Connected, but the agent cannot reach SAP: {reason}",
   "activeContext.unverified": "Connection could not be verified — ADT calls may fail",
   "activeContext.showSystem": "Show system · {path}",
   "activeContext.guiSession": "SAP GUI session · {system} {title}",

@@ -100,3 +100,16 @@ describe("TitleBar", () => {
     expect(close.className).toContain("hover:text-on-solid");
   });
 });
+
+// Kararlılık 3 (2026-11-12): 8787 açılmadan "Bağlantı doğrulandı" yeşil rozeti.
+describe("TitleBar — ajan SAP'ye erişemiyor", () => {
+  it("SAP doğrulandı ama ajan sunucusu yoksa rozet uyarı tonunda ve sebebi söylüyor", () => {
+    mount({ sap: { ...SAP, agentReady: false, agentIssue: "`mcp` paketi kurulu değil." }, gui: null });
+    const dot = screen.getByTitle("Bağlandı, ama ajan SAP'ye erişemiyor: `mcp` paketi kurulu değil.");
+    expect(dot.className).toContain("status-warning-text");
+  });
+  it("ajan hazırsa yeşil 'Bağlantı doğrulandı'", () => {
+    mount({ sap: SAP, gui: null });
+    expect(screen.getByTitle("Bağlantı doğrulandı").className).toContain("status-success-text");
+  });
+});

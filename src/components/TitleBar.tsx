@@ -61,9 +61,16 @@ export default function TitleBar({ context, onShowSystem, onClearSap }: Props) {
           className="group flex min-w-0 items-center gap-1.5 rounded-sm border border-line bg-control px-2 py-0.5"
           style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
         >
+          {/* SAP doğrulandı ama ajanın 8787 sunucusu yoksa yeşil değil: ajan SAP'ye erişemiyor. */}
           <span
-            className={`h-1.5 w-1.5 shrink-0 rounded-full ${context.sap.verified ? "bg-[var(--status-success-text)]" : "bg-[var(--status-warning-text)]"}`}
-            title={context.sap.verified ? t("activeContext.verified") : t("activeContext.unverified")}
+            className={`h-1.5 w-1.5 shrink-0 rounded-full ${context.sap.verified && context.sap.agentReady !== false ? "bg-[var(--status-success-text)]" : "bg-[var(--status-warning-text)]"}`}
+            title={
+              !context.sap.verified
+                ? t("activeContext.unverified")
+                : context.sap.agentReady === false
+                  ? t("activeContext.noAgent", { reason: context.sap.agentIssue || "-" })
+                  : t("activeContext.verified")
+            }
           />
           <button
             onClick={onShowSystem}

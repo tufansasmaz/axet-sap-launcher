@@ -815,7 +815,7 @@ export default function App() {
         credentials: { username, password, client }
       });
       if (result.ok) {
-        pushToast("success", result.message);
+        pushToast(result.agentAccess?.ok === false ? "warning" : "success", result.message);
         const title = `${credentialsTarget.path[credentialsTarget.path.length - 1] ?? credentialsTarget.service.name} · ${credentialsTarget.service.systemId || credentialsTarget.service.name}`;
         setCredentialsTarget(null);
         // Sohbetin ilk balonu. Bunu BURADA üretmemizin sebebi: bağlantının
@@ -832,15 +832,19 @@ export default function App() {
         // duyarlı, duruma özel açıklaması (bkz. `connectMsg`).
         const svc = credentialsTarget.service;
         const systemLabel = `${svc.name}${svc.systemId ? ` · ${svc.systemId}` : ""}`;
+        // 8787 açılmadıysa "bağlıyım" demiyor: SAP'ye ulaşıldı ama ajan ulaşamıyor.
+        const noAgent = result.verified && result.agentAccess?.ok === false;
         const notice = [
-          result.verified
-            ? t("connectNotice.verified", { system: systemLabel })
-            : t("connectNotice.unverified", { system: systemLabel }),
+          noAgent
+            ? t("connectNotice.verifiedNoAgent", { system: systemLabel })
+            : result.verified
+              ? t("connectNotice.verified", { system: systemLabel })
+              : t("connectNotice.unverified", { system: systemLabel }),
           t("connectNotice.identity", { client: result.effectiveClient || client, user: username }),
           "",
           result.message,
           "",
-          result.verified ? t("connectNotice.whatNext") : t("connectNotice.whatNextUnverified")
+          result.verified && !noAgent ? t("connectNotice.whatNext") : t("connectNotice.whatNextUnverified")
         ].join("\n");
         // Nerede açılacağı Bağlan düğmesinde seçildi (2026-10-19; varsayılan
         // ayardan, o da varsayılan olarak Sohbet). Sohbet: bu bağlantının

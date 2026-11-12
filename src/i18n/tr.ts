@@ -38,6 +38,7 @@ export const tr = {
   // `handleCredentialsSubmit`) — o sonuç zaten elimizde, ajana sordurmak hem
   // bir tur jetona mal oluyor hem de tahmine dayanıyordu.
   "connectNotice.verified": "**{system}** sistemine bağlıyım.",
+  "connectNotice.verifiedNoAgent": "**{system}** sistemine ulaşıldı, ama **ben (ajan) SAP'ye erişemiyorum**: ADT sunucusu açılamadı. Sebep aşağıda; düzeltip sisteme yeniden bağlanın.",
   "connectNotice.unverified": "**{system}** sistemine bağlandım, ama kimlik doğrulaması tamamlanmadı.",
   "connectNotice.identity": "Client `{client}` · kullanıcı `{user}`",
   "connectNotice.whatNext": "Ne yapmak istersin?",
@@ -66,6 +67,7 @@ export const tr = {
 
   // Aktif bağlam — üç ekranın ortak "neredeyiz" rozeti.
   "activeContext.verified": "Bağlantı doğrulandı",
+  "activeContext.noAgent": "Bağlandı, ama ajan SAP'ye erişemiyor: {reason}",
   "activeContext.unverified": "Bağlantı doğrulanamadı — ADT çağrıları başarısız olabilir",
   "activeContext.showSystem": "Sistemi göster · {path}",
   "activeContext.guiSession": "SAP GUI oturumu · {system} {title}",
