@@ -11,10 +11,15 @@ import { buildAgentCommand } from "../app-electron/shared/agentEngines";
 const exists = (dirs: string[]) => (p: string) => dirs.includes(p);
 
 describe("withToolDirs — Claude yerel kurulumu", () => {
-  it("~/.local/bin (yerel kurulum) PATH'te yoksa npm'den ÖNCE ekleniyor", () => {
+  // 1.9.1'de ~/.local/bin npm'in ÖNÜNE ekleniyordu (a2dade4). O klasör yalnız
+  // Claude'un değil: uv gibi araçlar oraya python3.exe bırakıyor ve py.exe
+  // betik satırındaki `python3`'ü PATH'te arıyor (ölçüm 2026-11-12) — 8787
+  // sunucusu yanlış Python'la açılıp düşüyordu. Genel PATH'e yalnız SONA
+  // ekleniyor; Claude'un yerel önceliği motor sondajında (pickBinary).
+  it("~/.local/bin PATH'te yoksa SONA ekleniyor (mevcut hiçbir klasörün önüne geçmiyor)", () => {
     const env = { APPDATA: "C:\\U\\AppData\\Roaming", USERPROFILE: "C:\\U" };
     const out = withToolDirs("C:\\Windows;C:\\U\\AppData\\Roaming\\npm", env, exists(["C:\\U\\.local\\bin", "C:\\U\\AppData\\Roaming\\npm"]));
-    expect(out).toBe("C:\\Windows;C:\\U\\.local\\bin;C:\\U\\AppData\\Roaming\\npm");
+    expect(out).toBe("C:\\Windows;C:\\U\\AppData\\Roaming\\npm;C:\\U\\.local\\bin");
   });
 
   it("npm de yoksa ikisi sırayla sona", () => {

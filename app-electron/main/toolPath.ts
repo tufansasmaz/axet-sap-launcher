@@ -30,15 +30,12 @@ export function withToolDirs(
   const have = new Set(parts.map(norm));
   const added = toolDirs(env).filter((dir) => !have.has(norm(dir)) && isDir(dir));
   if (added.length === 0) return current ?? "";
-  // Tur 10: yerel Claude kurulumu PATH'teki npm klasöründen ÖNCE (aynı ad iki yerde varsa yerel kazansın).
-  const local = env.USERPROFILE ? norm(path.win32.join(env.USERPROFILE, ".local", "bin")) : "";
-  const npm = env.APPDATA ? norm(path.win32.join(env.APPDATA, "npm")) : "";
-  const npmAt = parts.findIndex((p) => norm(p) === npm);
-  const localDir = added.find((d) => norm(d) === local);
-  if (localDir && npmAt >= 0) {
-    const rest = added.filter((d) => d !== localDir);
-    return [...parts.slice(0, npmAt), localDir, ...parts.slice(npmAt), ...rest].join(";");
-  }
+  // Yalnız SONA. 1.9.1'de ~/.local/bin npm klasörünün önüne konuyordu (Claude'un
+  // yerel kurulumu kazansın diye); ama o klasörde başka araçların ikilileri de
+  // var (uv'nin python3.exe'si) ve PATH'i miras alan HER süreç onları önce
+  // buluyordu — py.exe betik satırındaki `python3`'ü PATH'te arıyor ve 8787
+  // sunucusu yanlış Python'la düşüyordu (ölçüm 2026-11-12). Claude'un yerel
+  // önceliği yalnız Claude için: agentEngineProbe.pickBinary.
   return [...parts, ...added].join(";");
 }
 

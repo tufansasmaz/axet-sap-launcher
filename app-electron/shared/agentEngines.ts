@@ -98,6 +98,9 @@ export function claudeBaseCommand(launcher: string | undefined): string | null {
   if (!value) return null;
   if (/^[A-Za-z0-9][\w.-]*$/.test(value)) return value;
   if (/^[A-Za-z]:\\[^"%!^&|<>\r\n]+\.(?:bat|cmd)$/i.test(value)) return /\s/.test(value) ? `"${value}"` : value;
+  // Yerel kurulum (~/.local/bin\claude.exe): o klasör genel PATH'in SONUNDA
+  // (toolPath.ts, 2026-11-12); Claude'un yerel önceliği tam yolla korunuyor.
+  if (/^[A-Za-z]:\\[^"%!^&|<>\r\n]+\\\.local\\bin\\claude\.exe$/i.test(value)) return /\s/.test(value) ? `"${value}"` : value;
   return null;
 }
 

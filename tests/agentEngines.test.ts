@@ -158,3 +158,18 @@ describe("Kurulum komutları (Araçlar → Kur)", () => {
     expect(setupLine("node")).toBe("winget install OpenJS.NodeJS.LTS && exit");
   });
 });
+
+// Kararlılık turu (2026-11-12): ~/.local/bin artık genel PATH'in SONUNDA
+// (toolPath.ts); Claude'un yerel kurulumu yine önce gelsin diye bölme o
+// claude.exe'yi tam yoluyla açıyor — yalnız Claude için.
+describe("Claude yerel kurulumu (~/.local/bin) yalnız Claude için önce", () => {
+  it("yerel claude.exe tam yoluyla çalıştırılıyor", () => {
+    const cmd = buildAgentCommand(spec({ engine: "claude" }), "", { claudeBase: "C:\\Users\\u\\.local\\bin\\claude.exe" });
+    expect(cmd.startsWith("C:\\Users\\u\\.local\\bin\\claude.exe ")).toBe(true);
+    const spaced = buildAgentCommand(spec({ engine: "claude" }), "", { claudeBase: "C:\\Users\\Ad Soyad\\.local\\bin\\claude.exe" });
+    expect(spaced.startsWith('"C:\\Users\\Ad Soyad\\.local\\bin\\claude.exe" ')).toBe(true);
+  });
+  it("başka bir .exe yolu kabul edilmiyor", () => {
+    expect(buildAgentCommand(spec({ engine: "claude" }), "", { claudeBase: "C:\\Temp\\evil.exe" }).startsWith("claude ")).toBe(true);
+  });
+});

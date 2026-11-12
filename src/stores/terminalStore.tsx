@@ -330,7 +330,10 @@ export function TerminalStoreProvider({
       const isAgent = spec !== null;
       const shell: TerminalMode = pane.kind === "agent" ? config.terminal : pane.kind;
       // Tur 10: Claude'un kurumsal başlatıcısı (Araçlar sondajı) varsa Claude ajanı onunla açılır.
-      const claudeBase = engines?.find((e) => e.id === "claude")?.launcher?.path;
+      // Başlatıcı yoksa yerel kurulum (~/.local/bin\claude.exe; sondaj .exe'yi seçiyor): o klasör
+      // artık genel PATH'in sonunda, Claude'un yerel önceliği yalnız burada (2026-11-12).
+      const claudeEngine = engines?.find((e) => e.id === "claude");
+      const claudeBase = claudeEngine?.launcher?.path ?? claudeEngine?.path;
       const command = spec ? buildAgentCommand(spec, config.axetCommand || "", { claudeBase }) : setupCommands.current.get(pane.id);
       // Kurulum satırı bir kez: yeniden başlatılan bölme düz kabuk olur.
       setupCommands.current.delete(pane.id);
