@@ -254,6 +254,12 @@ export const tr = {
     "axet-code {latest} yayınlandı — Intune Company Portal üzerinden güncelleyebilirsiniz.",
   "axetCodeHome.axetCodeUpdateVersions":
     "axet-code {latest} yayınlandı (kurulu: {installed}) — Intune Company Portal üzerinden güncelleyebilirsiniz.",
+  // 1.5.1+: güncelleme satırı `can_auto_install=true` diyorsa axet-code kendini
+  // kuruyor. Program kullanımdayken kurulum exe'yi bozabildi (2026-10), bu
+  // yüzden açık axet-code oturumlarını kapatmak öneriliyor.
+  "axetCodeHome.axetCodeUpdateAuto":
+    "axet-code {latest} yayınlandı (kurulu: {installed}) — axet-code güncellemeyi kendisi kuruyor; kurulum sırasında açık axet-code bölmelerini kapatın.",
+  "axetCodeHome.axetCodeUpdateRequired": "Zorunlu güncelleme: ",
   "axetCodeHome.emptyTitle": "Henüz bir sohbet yok",
   "axetCodeHome.emptyHint": "axet.code ile konuşmaya başlamak için yeni bir sohbet aç.",
   "axetCodeHome.heroSubtitle": "Bugün ne yapalım?",

@@ -1,6 +1,7 @@
 import { execFile } from "node:child_process";
 import { axetExeCheck } from "./axetExe";
 import { mt } from "./i18n";
+import type { AxetUpdateInfo } from "../shared/types";
 
 /**
  * axet-code'un sürümünü öğrenir ve DEĞİŞTİĞİNDE bunu günlüğe yazar.
@@ -190,10 +191,17 @@ export function axetBinaryMessage(status: AxetBinaryStatus): string | null {
 // Her `run -v` turu stderr'e şunu yazıyor (ölçüm 2026-10-16):
 //   INFO Update check done component=bgjob job=auto-update current=1.4.1 latest=1.4.1 minimum=1.3.0 …
 // Eski TUI ekranındaki "new version available" yazısının yerine bu okunuyor.
+// 1.5.1 satırın sonuna ekliyor (ölçüm 2026-11-12):
+//   … minimum=1.4.1 platform=windows-amd64 artifact="…" required=false available=false can_auto_install=false
+// `required`: kurulu sürüm portalın en düşüğünün altında; `can_auto_install`:
+// axet-code güncellemeyi KENDİSİ kuruyor (Intune'a gerek yok). 1.4.1'de bu
+// alanlar yok → duyuru eski metniyle kalıyor.
 const RE_UPDATE_LINE = /Update check done\b.*?\bcurrent=([0-9][\w.+-]*)\s+latest=([0-9][\w.+-]*)/;
+const RE_REQUIRED = /\brequired=true\b/;
+const RE_AUTO_INSTALL = /\bcan_auto_install=true\b/;
 // Modül düzeyinde TEK değer bilerek: makinede tek bir axet-code kurulumu var,
 // hangi sohbetin turu görürse görsün aynı kurulumu anlatıyor.
-let updateInfo: { installed: string; latest: string } | null = null;
+let updateInfo: AxetUpdateInfo | null = null;
 
 // Duyuru KALICI: yalnızca bir axet-code süreci çalışınca görülüyor, oysa
 // gösterildiği yer sohbet açılış ekranı — henüz hiçbir turun koşmadığı an
@@ -208,13 +216,19 @@ export function persistUpdateSeen(store: { load(): string; save(latest: string):
 export function noteUpdateLine(line: string): void {
   const m = RE_UPDATE_LINE.exec(line);
   if (!m) return;
-  updateInfo = compareVersions(m[2], m[1]) > 0 ? { installed: m[1], latest: m[2] } : null;
+  if (compareVersions(m[2], m[1]) > 0) {
+    updateInfo = { installed: m[1], latest: m[2] };
+    if (RE_REQUIRED.test(line)) updateInfo.required = true;
+    if (RE_AUTO_INSTALL.test(line)) updateInfo.autoInstall = true;
+  } else {
+    updateInfo = null;
+  }
   // Satır kurulu sürümü de söylüyor; sondaya gerek yok.
   recordVersion(m[1]);
   if (seenStore && seenStore.load() !== m[2]) seenStore.save(m[2]);
 }
 
-export function axetUpdateAvailable(): { installed: string; latest: string } | null {
+export function axetUpdateAvailable(): AxetUpdateInfo | null {
   if (updateInfo) return updateInfo;
   // Bu açılışta henüz tur koşmadı: kalıcı değeri bilinen kurulu sürümle karşılaştır.
   const latest = seenStore?.load() ?? "";

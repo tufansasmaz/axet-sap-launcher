@@ -5,6 +5,7 @@ import type {
   AxetChatActivity,
   AxetChatMessage,
   AxetModelEntry,
+  AxetUpdateInfo,
   ChatAttachment,
   ChatProject,
   ChatSessionsState,
@@ -2290,7 +2291,7 @@ export default function AxetCodeHome({
   //
   // Yoklama BEDAVA: duyuru yokken `axetUpdateAvailable` config'i okuyup dönüyor,
   // hiçbir süreç açmıyor. Duyuru bulunduğu an aralık iptal ediliyor.
-  const [axetUpdate, setAxetUpdate] = useState<{ installed: string; latest: string } | null>(null);
+  const [axetUpdate, setAxetUpdate] = useState<AxetUpdateInfo | null>(null);
   useEffect(() => {
     if (axetUpdate) return;
     let done = false;

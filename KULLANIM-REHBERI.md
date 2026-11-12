@@ -443,7 +443,10 @@ listesi ve bağlanılan sistemler var.
   söylemiştim" dediğinde ajan neyi görmediğini bilir.
 - **axet-code sürümü eskiyse** sohbet açılışında uyarı çıkar. Güncelleme
   Intune Company Portal üzerinden yapılır; uygulama kendi başına axet-code
-  güncelleyemez.
+  güncelleyemez. axet-code 1.5.1 ve sonrası güncellemeyi kendisi kurabildiğini
+  bildirirse uyarı bunu söyler; kurulum sırasında açık axet-code bölmelerini
+  kapatın (program kullanımdayken kurulum exe'yi bozabiliyor). Portal kurulu
+  sürümü artık kabul etmiyorsa uyarı "Zorunlu güncelleme" diye başlar.
 
 ## Ayarlar
 

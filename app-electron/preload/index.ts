@@ -12,6 +12,7 @@ import type {
   AxetChatSendResult,
   AxetModelConfigResult,
   AxetModelEntry,
+  AxetUpdateInfo,
   AxetModelKind,
   AxetModelsListResult,
   ChatAttachmentPreviewResult,
@@ -434,7 +435,7 @@ const api = {
   ): Promise<void> => ipcRenderer.invoke("axetChat:prewarm", chatId, cwd, model, draft, history),
   // axet-code'un kendi güncelleme duyurusu (bizim uygulamamızınki AYRI, o
   // electron-updater'dan `onUpdateStatus` ile geliyor).
-  axetUpdateAvailable: (): Promise<{ installed: string; latest: string } | null> =>
+  axetUpdateAvailable: (): Promise<AxetUpdateInfo | null> =>
     ipcRenderer.invoke("axetChat:updateAvailable"),
   resetChatHistory: (chatId: string): Promise<boolean> =>
     ipcRenderer.invoke("axetChat:resetHistory", chatId),

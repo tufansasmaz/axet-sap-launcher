@@ -1,3 +1,4 @@
+import type { AxetUpdateInfo } from "../app-electron/shared/types";
 import type { AdtCapabilities } from "../app-electron/shared/adtCapabilities";
 import type { AgentAnswerResult, AgentEngineInfo, AgentRegistration, AgentStatusEvent, AxetAgentEntry } from "../app-electron/shared/agentTypes";
 import type { Board } from "../app-electron/shared/boardTypes";
@@ -311,7 +312,7 @@ export interface AxetApi {
     draft: string,
     history: AxetChatMessage[]
   ) => Promise<void>;
-  axetUpdateAvailable: () => Promise<{ installed: string; latest: string } | null>;
+  axetUpdateAvailable: () => Promise<AxetUpdateInfo | null>;
   /**
    * Ajanın hafızasını geri sarar (axet-code'da yeni oturum), süreci kapatmadan.
    * `false` = sıfırlanacak ayakta oturum yoktu.

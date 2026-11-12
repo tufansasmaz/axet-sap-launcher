@@ -9820,6 +9820,13 @@ tampondaydı.
   açmıyor. Aynı şeyi iki yerde göstermek gereksizdi.
 - Kurulumu biz yapamıyoruz (Intune Company Portal), o yüzden düğme değil
   **yalnızca haber**.
+- **axet-code 1.5.1 (2026-11-12):** güncelleme satırı `required=` ve
+  `can_auto_install=` alanlarını taşıyor. `can_auto_install=true` ise metin
+  Intune yerine "axet-code kendisi kuruyor; açık bölmeleri kapatın" diyor
+  (kullanımdaki exe'ye kurulum bozulmasına karşı); `required=true` ise
+  "Zorunlu güncelleme:" öneki. Bayraklar yalnız bellekte; kalıcı değerden
+  gelen duyuru eski metinle kalır. Seçim `src/lib/axetUpdateNotice.ts`.
+  Fark tablosu: `.superpowers/axet151-fark.md`.
 
 ### 9. Mikrofon kaldırıldı
 

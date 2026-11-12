@@ -38,6 +38,7 @@ import type {
   AxetChatActivityPhase,
   AxetModelEntry,
   AxetTodo,
+  AxetUpdateInfo,
   ChatAttachment,
   SystemTier
 } from "../../app-electron/shared/types";
@@ -47,6 +48,7 @@ import ChatToolRun from "./ChatToolRun";
 import { readDraggedPaths, resolveFilesToPaths } from "../lib/attachments";
 import { useLanguage, useT } from "../i18n";
 import { dayLabel, daySeparatorBefore } from "../lib/chatDays";
+import { axetUpdateNotice } from "../lib/axetUpdateNotice";
 import AppLogo from "./AppLogo";
 
 // Açılış ekranındaki öneri kartlarının ikonları. Bilinmeyen bir anahtar
@@ -141,7 +143,7 @@ interface Props {
   // axet-code'un kendi güncelleme duyurusu; yoksa `null`. Yalnızca AÇILIŞ
   // ekranında gösteriliyor — süren bir sohbetin ortasına sürüm haberi
   // düşürmek, kullanıcının o an baktığı şeyle ilgisiz olurdu.
-  axetUpdate: { installed: string; latest: string } | null;
+  axetUpdate: AxetUpdateInfo | null;
   registerTextarea: (el: HTMLTextAreaElement | null) => void;
   onDraftChange: (value: string) => void;
   onSend: () => void;
@@ -580,14 +582,7 @@ export default function ChatSessionPane({
             {axetUpdate && (
               <div className="mt-4 flex items-start gap-2 text-xs text-[var(--status-warning-text)]">
                 <ArrowUpCircle size={13} className="mt-0.5 shrink-0" />
-                <span>
-                  {axetUpdate.installed
-                    ? t("axetCodeHome.axetCodeUpdateVersions", {
-                        installed: axetUpdate.installed,
-                        latest: axetUpdate.latest
-                      })
-                    : t("axetCodeHome.axetCodeUpdate", { latest: axetUpdate.latest })}
-                </span>
+                <span>{axetUpdateNotice(axetUpdate, t)}</span>
               </div>
             )}
 

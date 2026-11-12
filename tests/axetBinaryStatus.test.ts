@@ -79,6 +79,16 @@ describe("güncelleme satırı", () => {
     noteUpdateLine("INFO başka bir satır");
     expect(axetUpdateAvailable()).toEqual({ installed: "1.4.1", latest: "1.4.2" });
   });
+
+  it("1.5.1 satırı: required / can_auto_install yalnız true ise taşınıyor", () => {
+    const base = "INFO Update check done component=bgjob job=auto-update current=1.5.1 latest=1.5.2 minimum=1.4.1 platform=windows-amd64";
+    noteUpdateLine(`${base} artifact="https://x/y.msi (installer, sha256=false)" required=false available=true can_auto_install=false`);
+    expect(axetUpdateAvailable()).toEqual({ installed: "1.5.1", latest: "1.5.2" });
+    noteUpdateLine(`${base} artifact="https://x/y.msi (installer, sha256=false)" required=false available=true can_auto_install=true`);
+    expect(axetUpdateAvailable()).toEqual({ installed: "1.5.1", latest: "1.5.2", autoInstall: true });
+    noteUpdateLine(`${base} required=true available=true can_auto_install=true`);
+    expect(axetUpdateAvailable()).toEqual({ installed: "1.5.1", latest: "1.5.2", required: true, autoInstall: true });
+  });
 });
 
 describe("güncelleme duyurusu kalıcı", () => {

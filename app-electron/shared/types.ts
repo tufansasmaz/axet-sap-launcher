@@ -847,6 +847,16 @@ export interface AxetModelEntry {
   model: string;
 }
 
+/** axet-code'un kendi güncelleme duyurusu (`run -v` güncelleme satırından; bkz. axetCodeVersion.ts). */
+export interface AxetUpdateInfo {
+  installed: string;
+  latest: string;
+  /** Portal kurulu sürümü artık kabul etmiyor (1.5.1+ satırı, `required=true`). */
+  required?: true;
+  /** axet-code güncellemeyi kendisi kuruyor (1.5.1+ satırı, `can_auto_install=true`). */
+  autoInstall?: true;
+}
+
 export type AxetModelKind = "large" | "small";
 
 export interface AxetModelConfig {

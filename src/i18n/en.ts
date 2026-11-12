@@ -226,6 +226,9 @@ export const en: Record<TranslationKey, string> = {
     "axet-code {latest} is out — update it from the Intune Company Portal.",
   "axetCodeHome.axetCodeUpdateVersions":
     "axet-code {latest} is out (installed: {installed}) — update it from the Intune Company Portal.",
+  "axetCodeHome.axetCodeUpdateAuto":
+    "axet-code {latest} is out (installed: {installed}) — axet-code installs the update itself; close open axet-code panes while it installs.",
+  "axetCodeHome.axetCodeUpdateRequired": "Mandatory update: ",
   "axetCodeHome.emptyTitle": "No chats yet",
   "axetCodeHome.emptyHint": "Start a new chat to begin talking with axet.code.",
   "axetCodeHome.heroSubtitle": "What are we building today?",
