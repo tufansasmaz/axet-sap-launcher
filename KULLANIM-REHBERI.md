@@ -1359,6 +1359,36 @@ açabilirsin. Pencere uygulamadaki tüm kısayolları listeler.
   **Hazırlık** ekranından bir proje klasörü seç: kalıcı kip ancak o zaman
   açılıyor. Aynı mesajı "Yeniden üret" ile bir kez daha denemek de çoğu
   durumda yeter; tekrarlıyorsa axet-code sürümünü Company Portal'dan güncelle.
+- **Açılışta Windows "This app can't run on your PC" penceresi çıkıyor, model
+  seçici "Yükleniyor..." kalıyor**: axet-code'un program dosyası
+  (`axet-code.exe`) bozulmuş — çoğunlukla axet-code kendini güncellerken
+  program açık kaldığı için dosya 0 bayta düşüyor. NTT Studio artık bozuk
+  dosyayı **hiç çalıştırmıyor** (pencere çıkmaz) ve Hazırlık ekranında
+  "axet-code program dosyası bozuk" der. Kurtarma: NTT Studio'yu ve tüm
+  axet-code pencerelerini kapat, `%LOCALAPPDATA%\axet-code\bin\axet-code.exe`
+  dosyasını sil, axet-code'u **Company Portal**'dan yeniden yükle.
+  `%TEMP%\axet-code-update.msi` duruyorsa Win+R ile
+  `msiexec /fa "%TEMP%\axet-code-update.msi"` de onarır.
+- **"Ajan bu sistemde: ADT sunucusu çalışmıyor"** (8787 açılmıyor, ama SAP
+  bağlantısı/PING çalışıyor): Logon ekranındaki o öbek artık altına **"Son
+  açma denemesi: ..."** satırıyla nedenini de yazıyor; günlükte de
+  `adt.sunucu ... sebep=...` satırı var. Sık nedenler:
+  - `mcp`/`requests`/`python-dotenv` kurulu değil → Hazırlık'taki Doktor
+    satırının verdiği `py -m pip install ...` komutunu çalıştır.
+  - "Python başlatıcısı yorumlayıcıyı açamadı" → PATH'teki bir `python3.exe`
+    bozuk ya da başka mimari. `where python3` ile bulup kaldır/düzelt.
+    (Sunucu artık `py -3` ile açılıyor, yani Doktor'un "tamam" dediği Python'u
+    kullanıyor; PATH'teki başka bir `python3.exe` onu ele geçiremiyor.)
+  - Port dolu → 8787'yi başka bir uygulama kullanıyor.
+  Ajanın kendi başlattığı eski bir sunucu 8787'yi tutuyorsa (ör. DEV'de
+  "yalnızca 20 salt okunur araç var, yazma yok" diyorsa) **sisteme yeniden
+  bağlanmak** artık onu kapatıp doğru sunucuyu açıyor.
+- **Sohbette yalnızca "EOF" ya da "Not authenticated" görünüyor / sıfırdan
+  kurulumda "cevap metni üretmedi"**: axet-code'un ilk kurulumu (giriş, proje,
+  model seçimi) bitmemiş; sohbet axet-code'u penceresiz çalıştırdığı için bu
+  soruları soramıyor. Ajanlar ekranında bir axet-code ajanı aç (ya da
+  terminalde `axet-code` yaz), girişi ve model seçimini bitir, sonra mesajı
+  yeniden gönder. Uygulama bu durumda artık doğrudan bunu söylüyor.
 - **Bir arıza tekrar ediyor, destek istiyorsun**: Uygulama kendi günlüğünü
   `%APPDATA%\axet-sap-launcher\logs\ntt-studio.log` dosyasına yazıyor. Bu
   dosyayı gönül rahatlığıyla gönderebilirsin: içinde **yalnızca sayaçlar ve
