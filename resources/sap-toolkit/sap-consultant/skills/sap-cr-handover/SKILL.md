@@ -25,8 +25,8 @@ author: "Beyhan Meyrali <beyhan.meyrali@nttdata.com>"
 > aşağıda `adt_xxx` MCP aracı denen her yerde `POST http://127.0.0.1:8787/tool/adt_xxx` oku.
 >
 > **Sunucunun yüzeyi ROLE ve SİSTEME göre değişiyor:** teknik danışman + DEV'de
-> `sap-adt` (33 araç), diğer her durumda — modül danışmanı rolünde her sistemde, ve
-> QA/PRD ile işaretlenmemiş sistemlerde herkes için — `sap-adt-readonly` (17 araç).
+> `sap-adt` (yazma araç seti), diğer her durumda — modül danışmanı rolünde her sistemde, ve
+> QA/PRD ile işaretlenmemiş sistemlerde herkes için — `sap-adt-readonly` (salt okunur araç seti).
 > Bu skill'in kullandığı `adt_list_transports`, `adt_transport_check`,
 > `adt_get_source`, `adt_where_used`, `adt_revisions`, `adt_atc_check`,
 > `adt_check_scatter`, `adt_badi_discovery` her iki yüzeyde de var — taşıma isteğini
@@ -35,7 +35,7 @@ author: "Beyhan Meyrali <beyhan.meyrali@nttdata.com>"
 > kapalıysa `404 unknown_tool` döner, o alanı boş bırak ve neden boş olduğunu yaz.
 >
 > **Taşımayı serbest bırakmak bu skill'in işi DEĞİL** ve yazma yüzeyi açıkken de
-> yapamaz: motorun 33 aracı arasında bir "release" aracı yok. Serbest bırakmayı
+> yapamaz: motorun araçları arasında bir "release" aracı yok. Serbest bırakmayı
 > geliştirici SE09/SE10'da kendisi yapar.
 >
 > **`${CLAUDE_PLUGIN_ROOT}` de yok.** Aşağıda `${CLAUDE_PLUGIN_ROOT}/scripts/` geçen her

@@ -127,7 +127,7 @@ continue on suspenders alone.
 > the `uri` it returns does not open directly — pass that `uri` to `adt_dump_detail` to read
 > the error analysis, the source extract and the include + line it terminated on, then open
 > that include with `adt_get_source` (upstream's `adt_dumps(dump=...)` reads the same chapters). `adt_spool_read`
-> stays closed. That surface is **30 tools**; `/health` lists them. Do not try to open or close
+> stays closed. That is the read-only tool set; `/health` lists it. Do not try to open or close
 > a gate yourself. On QA/PRD a sensitive table still answers `GR_PII`: ask the user, and
 > only an explicit "onay" from them goes into `approval_text` — never supply it yourself.
 

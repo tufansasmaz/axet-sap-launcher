@@ -27,10 +27,10 @@ client. Without a connection, stop and say so.
 > aşağıda `adt_xxx` MCP aracı denen her yerde `POST http://127.0.0.1:8787/tool/adt_xxx` oku.
 >
 > **Sunucunun yüzeyi ROLE ve SİSTEME göre değişiyor.** NTT Studio ikisine birden bakıp
-> iki sunucudan birini başlatıyor: **teknik danışman + DEV**'de `sap-adt` (33 araç,
+> iki sunucudan birini başlatıyor: **teknik danışman + DEV**'de `sap-adt` (yazma araç seti,
 > `adt_push`/`adt_activate` dahil); **diğer her durumda** — modül danışmanı rolünde her
 > sistemde, ve QA/PRD ile işaretlenmemiş sistemlerde herkes için — `sap-adt-readonly`
-> (17 araç; yazan her araç `404 unknown_tool` döner). Hangisinin ayakta olduğunu
+> (salt okunur araç seti; yazan her araç `404 unknown_tool` döner). Hangisinin ayakta olduğunu
 > varsayma — `GET /health` araç listesini veriyor.
 >
 > Bu skill'in ihtiyacı olan `adt_syntax_check`, `adt_atc_check`, `adt_get_source`,

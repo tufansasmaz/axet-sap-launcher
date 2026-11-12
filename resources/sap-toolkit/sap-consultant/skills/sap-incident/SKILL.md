@@ -27,11 +27,11 @@ author: "Beyhan Meyrali <beyhan.meyrali@nttdata.com>"
 > **§8'deki sınırlar bu dağıtımda MEKANİK olarak uygulanıyor.** Sunucunun yüzeyi role
 > ve sistemin önem derecesine göre seçiliyor:
 >
-> - **Teknik danışman + DEV** → `sap-adt` (33 araç). §8'in DEV yolu — adı geçen bir
+> - **Teknik danışman + DEV** → `sap-adt` (yazma araç seti). §8'in DEV yolu — adı geçen bir
 >   insan diff'i onayladıktan sonra `adt_push` → `adt_activate` — gerçekten çalışır.
 >   Onaylayanın adını vakaya yaz; aktivasyon doğrulama değildir.
 > - **Modül danışmanı (her sistem) ve HERKES için QA/PRD ile işaretlenmemiş sistemler**
->   → `sap-adt-readonly` (17 araç). `adt_push`/`adt_activate` `404 unknown_tool` döner.
+>   → `sap-adt-readonly` (salt okunur araç seti). `adt_push`/`adt_activate` `404 unknown_tool` döner.
 >   Teslim ettiğin şey diff'in kendisi olur; uygulamayı geliştirici yapar.
 >
 > Hangisinin ayakta olduğunu varsayma — `GET /health` araç listesini veriyor.

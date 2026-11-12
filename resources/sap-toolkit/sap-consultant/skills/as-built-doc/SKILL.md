@@ -32,7 +32,7 @@ actually active in the client.
 > aşağıda `adt_xxx` MCP aracı denen her yerde `POST http://127.0.0.1:8787/tool/adt_xxx` oku.
 >
 > **Sunucunun yüzeyi ROLE ve SİSTEME göre değişiyor:** teknik danışman + DEV'de
-> `sap-adt` (33 araç), diğer her durumda `sap-adt-readonly` (17 araç). Bu skill'in
+> `sap-adt` (yazma araç seti), diğer her durumda `sap-adt-readonly` (salt okunur araç seti). Bu skill'in
 > kullandığı `adt_search`, `adt_get_source`, `adt_list_package`, `adt_where_used`,
 > `adt_revisions` her iki yüzeyde de var. **`adt_sql` istisna:** read-only yüzeyde
 > `ADT_RO_ALLOW_SQL=true` ardında; kapalıysa `404 unknown_tool` döner ve o bölümü

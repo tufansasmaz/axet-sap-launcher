@@ -8,6 +8,7 @@ import { withNttPythonSite } from "./pythonSiteEnv";
 import { mt } from "./i18n";
 import type { SystemTier } from "../shared/types";
 import { applySapBindingEnv, sapBindingKey, type SapBinding } from "./sapBinding";
+import { ADT_READONLY_TOOL_COUNT, ADT_WRITE_TOOL_COUNT } from "../shared/adtSurface";
 
 // `adt_readonly_server.py`'yi (bkz. resources/sap-toolkit/sap-consultant/skills/sap-adt-readonly/scripts)
 // launcher'ın kendisi başlatır — RFC bridge otomatik başlatmasıyla (rfcBridgeManager.ts)
@@ -599,7 +600,7 @@ async function startReadonlyServerInner(opts: ReadonlyServerStartOptions): Promi
         message: mt("adtServer.surfaceMismatch", {
           port: opts.port,
           found: String(onPort.toolCount),
-          expected: opts.expectWritable ? "68" : "30"
+          expected: String(opts.expectWritable ? ADT_WRITE_TOOL_COUNT : ADT_READONLY_TOOL_COUNT)
         })
       };
     }

@@ -24,7 +24,7 @@ author: "Beyhan Meyrali <beyhan.meyrali@nttdata.com>"
 > aşağıda `adt_xxx` MCP aracı denen her yerde `POST http://127.0.0.1:8787/tool/adt_xxx` oku.
 >
 > **Sunucunun yüzeyi ROLE ve SİSTEME göre değişiyor:** teknik danışman + DEV'de
-> `sap-adt` (33 araç), diğer her durumda `sap-adt-readonly` (17 araç). Bu skill'in
+> `sap-adt` (yazma araç seti), diğer her durumda `sap-adt-readonly` (salt okunur araç seti). Bu skill'in
 > kullandığı `adt_search`,
 > `adt_code_search`, `adt_get_source`, `adt_where_used`, `adt_revisions`,
 > `adt_atc_check`, `adt_badi_discovery` her iki yüzeyde de var. **`adt_sql` ve
