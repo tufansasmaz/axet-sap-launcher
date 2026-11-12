@@ -88,7 +88,9 @@ import { buildSummary, clearChatHistory, clearAppLog, revealData } from "./dataP
 import { registerSupportIpc } from "./support/ipc";
 import { appLog, appLogPath } from "./appLog";
 import { isPathAllowed, listAllowedRoots, grantUserRoot, listDir, searchFiles, readTextFile, writeTextFile, readDocxFile, readImageDataUrl, openInExplorer, openExternal, importFiles, startWatch, stopWatch, stopAllWatches } from "./fsExplorer";
-import { getActiveContext, setActiveSap, setActiveGui, clearActiveSap, setActiveContextEmitter } from "./activeContext";
+import { getActiveContext, setActiveSap, setActiveGui, setActiveContextEmitter, removeActiveSap, focusActiveSap, findActiveSap } from "./activeContext";
+import { focusSystem, getSystem, pickEviction, removeSystem } from "./sapSystems";
+import { scrubInheritedAdtEnv } from "./adtHttpToken";
 import { readAdtCapabilities } from "./adtCapabilities";
 import { checkForUpdates, downloadUpdate, installUpdate, getLastUpdateStatus } from "./updater";
 import { openInSapLogon } from "./sapLogon";
@@ -144,10 +146,36 @@ import { testConnector, cancelConnectorTest, cancelAllConnectorTests, mcpUrlFor 
 import { shouldUseConnectors } from "./connectorPolicy";
 import { forgetConnectorHealth } from "./connectorHealth";
 import { notificationFor } from "./chatNotification";
-import type { ActiveGuiContext, AddManualSystemInput, AdoptWorkDirResult, AppConfig, ConnectRequest, SapService, CredentialDefaults, ProjectBrief, SapContextPreview, ConnectorInventory, SystemCommentDefaults, SystemTier, SkillProfile, TerminalMode, AxetModelKind, AxetModelEntry, AxetChatMessage, ChatSessionsState, FlowJsonValue, FlowTestRequestPayload, GuiScriptActionPayload, GuiScriptScreenshotMethod, ConnectorProvider } from "../shared/types";
+import type { ActiveGuiContext, ActiveSapContext, AddManualSystemInput, AdoptWorkDirResult, AppConfig, ConnectRequest, SapService, CredentialDefaults, ProjectBrief, SapContextPreview, ConnectorInventory, SystemCommentDefaults, SystemTier, SkillProfile, TerminalMode, AxetModelKind, AxetModelEntry, AxetChatMessage, ChatSessionsState, FlowJsonValue, FlowTestRequestPayload, GuiScriptActionPayload, GuiScriptScreenshotMethod, ConnectorProvider } from "../shared/types";
 
-// ADT sunucusunun portu (launcher.ts DEFAULT_READONLY_SERVER_PORT ile aynı).
-const ADT_SERVER_PORT = 8787;
+// Çoklu sistem: ADT portu + jetonu sistem başına (sapSystems.ts). NTT
+// Studio'yu başlatan ortamdan miras kalan ADT değişkenleri hiçbir alt sürece
+// geçmesin.
+scrubInheritedAdtEnv();
+
+/**
+ * Bir sistemin bağlantısını kesiyor: bağlam, onay oturumu, ADT sunucusu,
+ * köprü, kayıt (sapDisconnect.ts sırası). Önceden ısınmış sohbet süreçleri de
+ * bırakılıyor — ortamlarındaki jeton artık hiçbir sunucuya ait değil.
+ */
+function disconnectSystem(projectDir: string): void {
+  const target = getActiveContext().systems?.find((s) => s.projectDir === projectDir) ?? null;
+  disconnectActiveSap({
+    getSap: () => target ?? ({ projectDir } as ActiveSapContext),
+    clearSap: () => {
+      removeActiveSap(projectDir);
+      removeSystem(projectDir);
+    },
+    stopRfcBridge,
+    stopAdtServer: stopReadonlyServer,
+    closeWriteSession,
+    log: appLog
+  });
+  // Kayıt ile bağlamın odağı aynı sistemde kalsın.
+  const focused = getActiveContext().sap;
+  if (focused) focusSystem(focused.projectDir);
+  dropAllPrewarmed();
+}
 
 const DEFAULT_GUI_SCRIPT_BRIDGE_PORT = 8790;
 
@@ -1367,7 +1395,25 @@ function registerIpc(): void {
 
   ipcMain.handle("system:connect", async (_event, req: ConnectRequest) => {
     const config = loadConfig();
+    // Kaynak sınırı (en çok 4 sistem): yeni sistem gelince en uzun süredir
+    // kullanılmayan kesiliyor ve sonuçta adıyla söyleniyor.
+    const targetDir = computeProjectDir(config, req.customerPath, req.service);
+    const wasConnected = Boolean(getSystem(targetDir));
+    const evict = pickEviction(targetDir);
+    if (evict) {
+      appLog("sap.sinir", { kesilen: evict.systemId });
+      disconnectSystem(evict.projectDir);
+    }
     const result = await connectToSystem(config, req);
+    // Başarısız İLK bağlantı kayıt ve süreç bırakmasın; zaten bağlı bir
+    // sistemin yeniden bağlanması başarısızsa eski bağlantı olduğu gibi kalır.
+    if (!result.ok && !wasConnected && getSystem(result.projectDir)) disconnectSystem(result.projectDir);
+    if (evict && result.ok) {
+      result.message = `${mt("multiSystem.evicted", { sid: evict.systemId, max: "4" })}
+
+${result.message}`;
+    }
+    dropAllPrewarmed();
     if (result.trustedCertificates) {
       saveTrustedCertificates(result.trustedCertificates);
     }
@@ -1403,6 +1449,7 @@ function registerIpc(): void {
         projectDir: result.projectDir,
         connectedAt: new Date().toISOString(),
         verified: result.verified,
+        ...(getSystem(result.projectDir)?.adtPort ? { adtPort: getSystem(result.projectDir)!.adtPort! } : {}),
         // 8787 açılmadıysa rozet "doğrulandı" demesin (kararlılık 3, 2026-11-12).
         ...(result.agentAccess && !result.agentAccess.ok
           ? { agentReady: false, agentIssue: (result.agentAccess.reason ?? "").slice(0, 300) }
@@ -1434,10 +1481,20 @@ function registerIpc(): void {
 
   // "Ajan bu sistemde" öbeği: bağlı sistem için 8787'ye anahtarla sorulup
   // araç listesinden kuruluyor (bkz. adtCapabilities.ts).
-  ipcMain.handle("adt:capabilities", () => {
-    const sap = getActiveContext().sap;
+  ipcMain.handle("adt:capabilities", (_event, uuid?: unknown) => {
+    const sap = typeof uuid === "string" ? findActiveSap(uuid) : getActiveContext().sap;
     if (!sap) return null;
-    return readAdtCapabilities(ADT_SERVER_PORT, sap, loadConfig().skillProfile ?? null);
+    const rec = getSystem(sap.projectDir);
+    return readAdtCapabilities(rec?.adtPort ?? 8787, sap, loadConfig().skillProfile ?? null, rec?.token, sap.projectDir);
+  });
+
+  // Üst şeritteki çip: odağı o sisteme taşır (yeni sohbet/bölme orada açılır).
+  ipcMain.handle("context:focusSap", (_event, uuid: unknown) => {
+    if (typeof uuid === "string") {
+      const sap = findActiveSap(uuid);
+      if (sap && focusActiveSap(uuid)) focusSystem(sap.projectDir);
+    }
+    return getActiveContext();
   });
 
   // Temizleme yalnızca SAP tarafı için var ve kullanıcı eylemi (başlık
@@ -1445,15 +1502,10 @@ function registerIpc(): void {
   // oturum kapanınca ekran zaten `null` yayınlıyor.
   // Kesme GERÇEK: o sistemin köprüsü, 8787'deki ADT sunucusu ve onay oturumu
   // da kapanıyor (bkz. sapDisconnect.ts). Eskiden yalnız rozet siliniyordu.
-  ipcMain.handle("context:clearSap", () => {
-    disconnectActiveSap({
-      getSap: () => getActiveContext().sap,
-      clearSap: clearActiveSap,
-      stopRfcBridge,
-      stopAdtServer: stopReadonlyServer,
-      closeWriteSession,
-      log: appLog
-    });
+  // Çoklu sistem: uuid verilirse YALNIZ o sistem kesilir; verilmezse odaktaki.
+  ipcMain.handle("context:clearSap", (_event, uuid?: unknown) => {
+    const sap = typeof uuid === "string" ? findActiveSap(uuid) : getActiveContext().sap;
+    if (sap) disconnectSystem(sap.projectDir);
     return getActiveContext();
   });
 

@@ -658,6 +658,11 @@ export interface ActiveSapContext {
   agentReady?: boolean;
   /** `agentReady === false` ise sebebi (rozetin ipucunda). */
   agentIssue?: string;
+  /**
+   * Bu sistemin ADT sunucusunun portu (çoklu sistem: sistem başına; ilk sistem
+   * 8787). Jeton BURADA YOK — renderer'a ve ajanın istemine gitmiyor.
+   */
+  adtPort?: number;
 }
 
 /** SAP GUI Scripting ekranının o an baktığı canlı oturum. Tek yazarı o ekran. */
@@ -674,8 +679,11 @@ export interface ActiveGuiContext {
 }
 
 export interface ActiveContext {
+  /** Odaktaki sistem (eski tüketiciler için; yeni sohbet/bölme bunu kullanır). */
   sap: ActiveSapContext | null;
   gui: ActiveGuiContext | null;
+  /** Bütün bağlı sistemler, bağlanma sırasıyla (çoklu sistem, 2026-11-12). */
+  systems?: ActiveSapContext[];
 }
 
 export interface SystemCommentDefaults {

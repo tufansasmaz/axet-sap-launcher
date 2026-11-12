@@ -100,7 +100,7 @@ const api = {
   // ve temizleyebiliyor; tek yazar başarılı bağlantının kendisi.
   getActiveContext: (): Promise<ActiveContext> => ipcRenderer.invoke("context:get"),
   // Bağlı sistemde ajanın neyi yapabildiği; 8787'nin araç listesinden. Bağlantı yoksa null.
-  getAdtCapabilities: (): Promise<AdtCapabilities | null> => ipcRenderer.invoke("adt:capabilities"),
+  getAdtCapabilities: (uuid?: string): Promise<AdtCapabilities | null> => ipcRenderer.invoke("adt:capabilities", uuid),
   // "Sorun bildir": pakete girecek dosyalar ve paketi oluşturma (bkz. support/ipc.ts).
   supportPreview: (req: { note: string; chatMarkdown: string | null }): Promise<string[]> =>
     ipcRenderer.invoke("support:preview", req),
@@ -111,7 +111,9 @@ const api = {
     ipcRenderer.invoke("sapWrite:history", customerPath, service),
   exportWriteHistoryCsv: (customerPath: string[], service: SapService): Promise<WriteCsvResult> =>
     ipcRenderer.invoke("sapWrite:exportCsv", customerPath, service),
-  clearActiveSapContext: (): Promise<ActiveContext> => ipcRenderer.invoke("context:clearSap"),
+  // Çoklu sistem: uuid verilirse yalnız o sistem kesilir; verilmezse odaktaki.
+  clearActiveSapContext: (uuid?: string): Promise<ActiveContext> => ipcRenderer.invoke("context:clearSap", uuid),
+  focusSapSystem: (uuid: string): Promise<ActiveContext> => ipcRenderer.invoke("context:focusSap", uuid),
   setActiveGuiContext: (gui: ActiveGuiContext | null): Promise<ActiveContext> => ipcRenderer.invoke("context:setGui", gui),
   onActiveContextChanged: (callback: (context: ActiveContext) => void) => {
     const listener = (_e: unknown, context: ActiveContext) => callback(context);

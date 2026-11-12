@@ -150,6 +150,7 @@ export const MAIN_TR = {
     "NTT katalog klasörü bu makineye eşitlenmemiş (gerekli değil; uygulama kendi paketiyle geliyor).",
 
   // --- adtReadonlyServerManager.ts ---
+  "multiSystem.evicted": "En çok {max} sistem aynı anda bağlı kalabiliyor: en uzun süredir kullanılmayan {sid} bağlantısı kesildi.",
   "adtServer.requestsMissing": "`requests` kurulu değil.",
   "adtServer.mcpMissing": "`mcp` paketi kurulu değil.",
   "adtServer.dotenvMissing": "`python-dotenv` kurulu değil.",

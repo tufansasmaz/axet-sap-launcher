@@ -213,6 +213,15 @@ export async function allocatePort(
   throw new Error(`no free port in ${DYNAMIC_PORT_FIRST}-${DYNAMIC_PORT_LAST}`);
 }
 
+/**
+ * sap-context.md ve bağlam bloğu sistemin GERÇEK portunu yazsın: metindeki her
+ * 8787 ADT sunucusunu anlatıyor (RFC köprüsü ayrı yazılıyor).
+ */
+export function withAdtPort(text: string, port: number): string {
+  if (port === ADT_DEFAULT_PORT) return text;
+  return text.replace(/(?<!\d)8787(?!\d)/g, String(port));
+}
+
 export function resetSystemsForTest(): void {
   systems.clear();
   focusKey = null;

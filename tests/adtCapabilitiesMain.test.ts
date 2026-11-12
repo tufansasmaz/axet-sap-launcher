@@ -67,7 +67,7 @@ describe("Doktor'un 8787 kontrolü", () => {
   it("anahtarlı yoklamayı kullanıyor, anahtarsız httpOk'u değil", () => {
     const doctor = readFileSync(path.join(__dirname, "..", "app-electron", "main", "doctor.ts"), "utf-8");
     expect(doctor).not.toContain("httpOk(ADT_PORT");
-    expect(doctor).toContain("probeAdtTools(ADT_PORT");
+    expect(doctor).toContain("probeAdtTools(adtPort, 1500, focused?.token)");
   });
 });
 

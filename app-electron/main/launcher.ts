@@ -16,13 +16,14 @@ import { pinForUrl } from "./tlsPin";
 import { performSamlLogin, type SamlLoginResult } from "./samlLogin";
 import { saveSamlIdpOrigin } from "./store";
 import { getGlobalAxetRoot, installSkillsIntoProject, skillCountForNotice, type SkillInstallResult } from "./sapToolkit";
-import { startRfcBridge, stopRfcBridgesExcept } from "./rfcBridgeManager";
+import { startRfcBridge, stopRfcBridge } from "./rfcBridgeManager";
 import { isRouterPermissionDeniedMessage } from "./sapRouter";
 import { startReadonlyServer } from "./adtReadonlyServerManager";
 import { appLog } from "./appLog";
 import { withAgentAccess } from "./connectAgentAccess";
 import { sapBindingFor, type SapBinding } from "./sapBinding";
-import { closeAllWriteSessions, closeWriteSession, openWriteSession } from "./sapWrite/server";
+import { closeWriteSession, openWriteSession } from "./sapWrite/server";
+import { ADT_DEFAULT_PORT, RFC_DEFAULT_PORT, allocatePort, withAdtPort, setSystemAdtPort, setSystemRfcPort, upsertSystem } from "./sapSystems";
 import type { Identity } from "./sapWrite/policy";
 import { getEmbeddedRfcRuntime } from "./embeddedRuntime";
 import { syncBriefIntoContext } from "./projectBrief";
@@ -102,8 +103,6 @@ function connectMsg(
 function skillNoteFor(language: "tr" | "en", count: number): string {
   return language === "en" ? `, ${count} skills installed` : `, ${count} skill kuruldu`;
 }
-const DEFAULT_RFC_BRIDGE_PORT = 8788;
-const DEFAULT_READONLY_SERVER_PORT = 8787;
 // Proje klasörüne göreli sabit ad. `login_saml_sso.py` host'a göre değişen bir
 // ad üretiyordu (`.saml_cookies_<host>.json`) ve o yüzden `.conn_adt` satırını
 // da elle kopyalatmak zorundaydı. Klasör zaten sisteme özel olduğu için
@@ -298,6 +297,8 @@ async function attemptRfcBridgeAutoStart(
 
 interface ReadonlyServerOutcome {
   started: boolean;
+  /** Sunucunun (ya da denenen) portu — sistem başına (sapSystems.ts). */
+  port: number;
   alreadyRunning: boolean;
   detailNote: string;
   /** Başlatılamadıysa kullanıcıya gösterilecek sebep (bağlantı sonucu ve rozet için). */
@@ -348,13 +349,17 @@ function adtServerScriptFor(writeSurface: boolean): { rel: string[]; label: stri
     : { rel: ["sap-adt-readonly", "scripts", "adt_readonly_server.py"], label: "ADT read-only sunucusu (22 araç)" };
 }
 
+/** 8787'de yabancı/kanıtlanamayan süreç: başka porta geçmeyi haklı kılan sebepler. */
+const PORT_TAKEN_REASONS = new Set(["portBusyOther", "foreignToken", "foreignTokenGated", "gatedPortBusy", "surfaceMismatch", "portInUse", "previousStillRunning"]);
+
 async function attemptReadonlyServerAutoStart(
   skillInstall: SkillInstallResult,
   projectDir: string,
   port: number,
   identity: Identity,
   tier: SystemTier,
-  binding: SapBinding
+  binding: SapBinding,
+  token: string
 ): Promise<ReadonlyServerOutcome> {
   const writeSurface = skillInstall.adtWriteSurface;
   const { rel: scriptRel, label } = adtServerScriptFor(writeSurface);
@@ -365,16 +370,15 @@ async function attemptReadonlyServerAutoStart(
   if (!scriptPath) {
     return {
       started: false,
+      port,
       alreadyRunning: false,
       detailNote: `${scriptRel[scriptRel.length - 1]} bulunamadı (SAP toolkit kurulu değil gibi görünüyor) — ${label} otomatik başlatılamadı, elle kuruluma bak.`
     };
   }
 
-  // 8787 tek, sahibi tek proje (yönetici başka projenin sunucusunu durduruyor).
-  // Onay oturumu sahibini izliyor: bu bağlantı portu alacaksa, başka projelerin
-  // oturumları artık hiçbir sunucuya ait değil. Açık kalsalar NTT Studio
-  // ölü bir oturum için mod sorar, pencere gösterirdi.
-  closeAllWriteSessions();
+  // Çoklu sistem (2026-11-12): her sistemin kendi sunucusu ve kendi onay
+  // oturumu var. Eskiden 8787 tek olduğu için burada BÜTÜN oturumlar
+  // kapanıyordu; şimdi `openWriteSession` yalnız bu klasörün eskisini kapatıyor.
   let gate: { url: string; token: string } | undefined;
   if (writeSurface) {
     try {
@@ -385,6 +389,7 @@ async function attemptReadonlyServerAutoStart(
       // Onay ucu yoksa DEV'e onaysız yazan bir sunucu açmıyoruz.
       return {
         started: false,
+        port,
         alreadyRunning: false,
         detailNote: `${label} başlatılmadı: NTT Studio'nun onay ucu açılamadı (${(err as Error).message}). DEV'e yazma onaysız açılmaz; sisteme yeniden bağlan.`,
         failure: (err as Error).message
@@ -392,16 +397,22 @@ async function attemptReadonlyServerAutoStart(
     }
   }
 
-  const startResult = await startReadonlyServer({
-    projectDir,
-    scriptPath,
-    pythonPath: "py",
-    port,
-    expectWritable: writeSurface,
-    gate,
-    tier,
-    binding
-  });
+  const startOn = (p: number) =>
+    startReadonlyServer({ projectDir, scriptPath, pythonPath: "py", port: p, expectWritable: writeSurface, gate, tier, binding, token });
+  let startResult = await startOn(port);
+  // 8787'yi sahibi olmadığımız (ya da kanıtlayamadığımız) bir süreç tutuyorsa
+  // bağlantı artık düşmüyor: bu sistem dinamik bir porta geçiyor. Ajan portu
+  // ortamdan (ABAP_HTTP_URL) ve sap-context.md'den öğreniyor.
+  if (!startResult.ok && port === ADT_DEFAULT_PORT && PORT_TAKEN_REASONS.has(startResult.reason ?? "")) {
+    try {
+      port = await allocatePort(ADT_DEFAULT_PORT, "adt", projectDir, { avoidPreferred: true });
+      appLog("adt.sunucu", { sonuc: "port-degisti", port: String(port), sebep: startResult.reason ?? "-" });
+      startResult = await startOn(port);
+    } catch {
+      /* aralık dolu: ilk hata söylenir */
+    }
+  }
+  setSystemAdtPort(projectDir, startResult.ok ? port : null);
   // Günlükte iz yoktu (R5, 2026-11-12): "8787 erişilemiyor" raporlarında
   // neden açılmadığı hiçbir yerde görünmüyordu. Ham çıktı değil, sebebin adı.
   appLog("adt.sunucu", {
@@ -413,6 +424,7 @@ async function attemptReadonlyServerAutoStart(
     if (gate) closeWriteSession(projectDir);
     return {
       started: false,
+      port,
       alreadyRunning: false,
       detailNote: `${label} otomatik başlatılamadı: ${startResult.message}`,
       failure: startResult.message
@@ -421,6 +433,7 @@ async function attemptReadonlyServerAutoStart(
 
   return {
     started: true,
+    port,
     alreadyRunning: startResult.alreadyRunning,
     detailNote: startResult.alreadyRunning
       ? `${label} (http://127.0.0.1:${port}) zaten çalışıyordu.`
@@ -1093,7 +1106,7 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
       ashost,
       sysnr: instanceNr,
       saprouter: routerString,
-      bridgePort: DEFAULT_RFC_BRIDGE_PORT
+      bridgePort: await allocatePort(RFC_DEFAULT_PORT, "rfc", projectDir)
     };
     allNotes.push(
       "Router raw/native HTTPS'i reddetti ama native SAP protokolüne (DIAG/RFC) izin veriyor — " +
@@ -1131,7 +1144,7 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
         ashost: host,
         sysnr: instanceNr,
         saprouter: "",
-        bridgePort: DEFAULT_RFC_BRIDGE_PORT
+        bridgePort: await allocatePort(RFC_DEFAULT_PORT, "rfc", projectDir)
       };
       allNotes.push(
         `Tüm ADT/HTTPS portları ağ seviyesinde erişilemez durumda (zaman aşımı/bağlantı hatası) ama SAP'ın native gateway portu (${host}:${gatewayPort}) erişilebilir — SAProuter YOK, doğrudan (router'sız) RFC bridge moduna geçiliyor. Bu, Eclipse ADT'nin "SAP GUI connection" tabanlı bağlantılarda kullandığı AYNI mekanizma (SADT_REST_RFC_ENDPOINT, canlı netstat ile doğrulandı). Kimlik bilgileri bu launcher tarafından HTTP ile doğrulanamadı; gerçek doğrulama RFC bridge kurulumu sırasında yapılmalı.`
@@ -1248,6 +1261,17 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
   // hesaplansalardı meşru bir bağlantıda da farklı çıkabilirlerdi.
   const sapBinding = sapBindingFor(credentials, finalUrl, rfcBridge?.bridgePort);
 
+  // Sistem kaydı (sapSystems.ts): jeton ve portlar sistem başına. Aynı klasöre
+  // yeniden bağlanmak jetonu koruyor; açık bölmelerin ortamı geçerli kalıyor.
+  const system = upsertSystem(projectDir, {
+    uuid: req.service.uuid,
+    systemId: req.service.systemId || req.service.name,
+    client: credentials.client.trim(),
+    user: credentials.username.trim().toUpperCase(),
+    tier: systemTier
+  });
+  setSystemRfcPort(projectDir, rfcBridge?.bridgePort ?? null);
+
   const connAdtPath = path.join(projectDir, ".conn_adt");
   try {
     const certPin = pinForUrl(trustedCertificatesUpdate ?? config.trustedCertificates, finalUrl);
@@ -1271,9 +1295,9 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
     tier: systemTier
   });
 
-  // Tek aktif bağlam: başka sistemlerin RFC köprüleri (ve SAP'taki RFC
-  // oturumları) kapanıyor; bu sistemin köprüsü gerekiyorsa aşağıda yeniden açılıyor.
-  stopRfcBridgesExcept(projectDir);
+  // Çoklu sistem: başka sistemlerin köprülerine dokunulmuyor. Bu sistem
+  // önceki bağlantısında köprü kullanıp artık kullanmıyorsa yalnız onunki kapanır.
+  if (!rfcBridge) stopRfcBridge(projectDir);
 
   let toolTest = { ok: false, detail: "RFC bridge modunda adt-tool.ps1 self-test atlandı" };
   let rfcOutcome: RfcBridgeOutcome | null = null;
@@ -1306,11 +1330,11 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
   // (router'lı/router'sız, doğrulanmış/doğrulanamamış) başlatılır.
   let readonlyOutcome: ReadonlyServerOutcome | null = null;
   if (!rfcBridge || !rfcOutcome?.credentialsInvalid) {
-    readonlyOutcome = await attemptReadonlyServerAutoStart(skillInstall, projectDir, DEFAULT_READONLY_SERVER_PORT, {
+    readonlyOutcome = await attemptReadonlyServerAutoStart(skillInstall, projectDir, await allocatePort(ADT_DEFAULT_PORT, "adt", projectDir), {
       sid: req.service.systemId,
       client: credentials.client.trim(),
       user: credentials.username.trim().toUpperCase()
-    }, systemTier ?? "QA", sapBinding);
+    }, systemTier ?? "QA", sapBinding, system.token);
     // Kademe `.conn_adt`'deki satırla aynı kuraldan (`buildConnAdt`: işaretsiz
     // sistem QA) ama sunucuya ortamdan gidiyor: `.conn_adt`'yi ajan
     // düzenleyebiliyor, sunucunun ortamını düzenleyemiyor.
@@ -1324,7 +1348,7 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
     interactive: samlLogin?.interactive ?? false,
     failureDetail: samlFailureDetail
   }, systemTier);
-  const finalContent = mergeWithExistingNotes(generated, contextFile);
+  const finalContent = mergeWithExistingNotes(withAdtPort(generated, readonlyOutcome?.port ?? system.adtPort ?? ADT_DEFAULT_PORT), contextFile);
 
   try {
     writeFileSync(contextFile, finalContent, "utf-8");

@@ -22,6 +22,7 @@ import { getToolkitRoot, readToolkitVersion } from "./sapToolkit";
 import type { DoctorReport, DoctorRow } from "../shared/types";
 import { mt } from "./i18n";
 import { probeAdtTools } from "./adtReadonlyServerManager";
+import { focusedSystem } from "./sapSystems";
 
 /** Kurulu olması gereken pip paketleri: pip adı -> import adı. */
 export const REQUIRED_PACKAGES: Record<string, string> = {
@@ -184,22 +185,26 @@ export async function runDoctor(): Promise<DoctorReport> {
 
   // 8787 `/health`'i de anahtarın arkasında tutuyor: anahtarsız soru 401
   // alıyor ve çalışan sunucu "kapalı" görünüyordu.
-  const adtAlive = (await probeAdtTools(ADT_PORT)).alive;
+  // Çoklu sistem: odaktaki sistemin sunucusu, kendi jetonuyla.
+  const focused = focusedSystem();
+  const adtPort = focused?.adtPort ?? ADT_PORT;
+  const adtAlive = (await probeAdtTools(adtPort, 1500, focused?.token)).alive;
   rows.push({
     id: "adtServer",
     status: adtAlive ? "ok" : "warn",
     detail: adtAlive
-      ? mt("doctor.adtAlive", { port: ADT_PORT })
-      : mt("doctor.adtDown", { port: ADT_PORT })
+      ? mt("doctor.adtAlive", { port: adtPort })
+      : mt("doctor.adtDown", { port: adtPort })
   });
 
-  const rfcAlive = await httpOk(RFC_BRIDGE_PORT, "/health");
+  const rfcPort = focused?.rfcPort ?? RFC_BRIDGE_PORT;
+  const rfcAlive = await httpOk(rfcPort, "/health");
   rows.push({
     id: "rfcBridge",
     status: rfcAlive ? "ok" : "info",
     detail: rfcAlive
-      ? mt("doctor.rfcAlive", { port: RFC_BRIDGE_PORT })
-      : mt("doctor.rfcDown", { port: RFC_BRIDGE_PORT })
+      ? mt("doctor.rfcAlive", { port: rfcPort })
+      : mt("doctor.rfcDown", { port: rfcPort })
   });
 
   // RFC runtime uygulamayla birlikte geliyor; yoksa router-only sistemlerde

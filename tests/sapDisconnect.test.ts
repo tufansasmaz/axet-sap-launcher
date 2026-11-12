@@ -65,6 +65,9 @@ describe("disconnectActiveSap", () => {
   it("context:clearSap kanali bu yolu kullanir", () => {
     const index = readFileSync(path.join(__dirname, "..", "app-electron", "main", "index.ts"), "utf8");
     const handler = index.slice(index.indexOf('ipcMain.handle("context:clearSap"'));
-    expect(handler.slice(0, 600)).toContain("disconnectActiveSap(");
+    // Çoklu sistem: kanal yalnız seçilen sistemi kesen yardımcıyı çağırıyor, o da bu yolu.
+    expect(handler.slice(0, 600)).toContain("disconnectSystem(");
+    const helper = index.slice(index.indexOf("function disconnectSystem("));
+    expect(helper.slice(0, 800)).toContain("disconnectActiveSap(");
   });
 });

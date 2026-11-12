@@ -110,12 +110,13 @@ export interface AxetApi {
   // (bkz. app-electron/main/activeContext.ts).
   getActiveContext: () => Promise<ActiveContext>;
   /** Bağlı sistemde ajanın neyi yapabildiği (8787'nin araç listesinden); bağlantı yoksa null. */
-  getAdtCapabilities: () => Promise<AdtCapabilities | null>;
+  getAdtCapabilities: (uuid?: string) => Promise<AdtCapabilities | null>;
   supportPreview: (req: { note: string; chatMarkdown: string | null }) => Promise<string[]>;
   supportCreate: (req: { note: string; chatMarkdown: string | null }) => Promise<SupportCreateResult>;
   getWriteHistory: (customerPath: string[], service: SapService) => Promise<WriteHistoryResult>;
   exportWriteHistoryCsv: (customerPath: string[], service: SapService) => Promise<WriteCsvResult>;
-  clearActiveSapContext: () => Promise<ActiveContext>;
+  clearActiveSapContext: (uuid?: string) => Promise<ActiveContext>;
+  focusSapSystem: (uuid: string) => Promise<ActiveContext>;
   setActiveGuiContext: (gui: ActiveGuiContext | null) => Promise<ActiveContext>;
   onActiveContextChanged: (callback: (context: ActiveContext) => void) => () => void;
   getConfig: () => Promise<AppConfig>;

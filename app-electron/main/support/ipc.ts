@@ -10,6 +10,7 @@ import { app, shell } from "electron";
 import type { AppConfig, SupportCreateResult } from "../../shared/types";
 import { getActiveContext } from "../activeContext";
 import { getAdtHttpToken } from "../adtHttpToken";
+import { allSystemTokens, focusedSystem } from "../sapSystems";
 import { probeAdtTools } from "../adtReadonlyServerManager";
 import { appLog, appLogPath } from "../appLog";
 import { axetCodeVersion } from "../axetCodeVersion";
@@ -48,7 +49,7 @@ function normalize(raw: unknown): BundleRequest {
 }
 
 function collectSecrets(config: AppConfig): string[] {
-  const out = [getAdtHttpToken(), ...activeApprovalTokens()];
+  const out = [getAdtHttpToken(), ...allSystemTokens(), ...activeApprovalTokens()];
   for (const cred of Object.values(config.lastCredentials ?? {})) {
     const pw = decryptSecret(cred?.password ?? "");
     if (pw) out.push(pw);
@@ -58,7 +59,8 @@ function collectSecrets(config: AppConfig): string[] {
 
 async function buildInfo(config: AppConfig): Promise<Record<string, unknown>> {
   const sap = getActiveContext().sap;
-  const health = await probeAdtTools(ADT_PORT);
+  const focused = focusedSystem();
+  const health = await probeAdtTools(focused?.adtPort ?? ADT_PORT, 1500, focused?.token);
   const doctor = await runDoctor().catch((err: unknown) => ({ hata: String(err) }));
   return {
     olusturuldu: new Date().toISOString(),

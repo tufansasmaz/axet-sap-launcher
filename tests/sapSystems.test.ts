@@ -19,7 +19,8 @@ import {
   setSystemAdtPort,
   systemForCwd,
   touchSystem,
-  upsertSystem
+  upsertSystem,
+  withAdtPort
 } from "../app-electron/main/sapSystems";
 
 const ident = (sid: string) => ({ uuid: `u-${sid}`, systemId: sid, client: "100", user: "DEV1", tier: "DEV" as const });
@@ -129,5 +130,13 @@ describe("odak ve sınır", () => {
   it("sınırın altında kimse düşmüyor", () => {
     upsertSystem("C:\\p\\A", ident("A"));
     expect(pickEviction("C:\\p\\B")).toBeNull();
+  });
+});
+
+describe("withAdtPort", () => {
+  it("8787 metinde sistemin portuna dönüyor; 8787'de metin aynı; 87871 gibi sayılar korunuyor", () => {
+    const md = "http://127.0.0.1:8787/tool/x · 8787'deki sunucu · --port 8787 · 87871 · 8788";
+    expect(withAdtPort(md, 8787)).toBe(md);
+    expect(withAdtPort(md, 8802)).toBe("http://127.0.0.1:8802/tool/x · 8802'deki sunucu · --port 8802 · 87871 · 8788");
   });
 });

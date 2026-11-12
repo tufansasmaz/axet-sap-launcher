@@ -146,6 +146,7 @@ export const MAIN_EN = {
   "doctor.catalogNotSynced": "The NTT catalog folder is not synced on this machine (not required; the app ships its own package).",
 
   // --- adtReadonlyServerManager.ts ---
+  "multiSystem.evicted": "At most {max} systems can stay connected at once: {sid}, the least recently used, was disconnected.",
   "adtServer.requestsMissing": "`requests` is not installed.",
   "adtServer.mcpMissing": "The `mcp` package is not installed.",
   "adtServer.dotenvMissing": "`python-dotenv` is not installed.",
