@@ -337,6 +337,12 @@ export const en: Record<TranslationKey, string> = {
   "modelSelector.empty": "No models available",
   "modelSelector.appliesNextChatHint": "Applies to this chat's next messages and to new chats.",
   "modelSelector.switched": "Switched model: {model}",
+  "agentSelector.title": "Agent",
+  "agentSelector.heading": "axet.code agent",
+  "agentSelector.defaultNamed": "axet default ({name})",
+  "agentSelector.defaultUnknown": "axet default",
+  "agentSelector.restrictedHint": "The default agent “{name}” isn't general-purpose (security/permission-focused or restricted); pick “coder” for general work.",
+  "agentSelector.scopeHint": "Applies to this chat only; your axet-code settings stay unchanged.",
   "modelSelector.saveFailed": "Could not save the model choice: {message}",
 
   "settingsModal.sectionSkills": "AI skills",

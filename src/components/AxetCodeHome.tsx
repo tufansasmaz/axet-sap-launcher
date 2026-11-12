@@ -34,6 +34,7 @@ import { useT } from "../i18n";
 import { useChatStore } from "../stores/chatStore";
 import { useChatOpen } from "../lib/useChatOpen";
 import { deriveTitle, type ChatSession, type RecentEntry } from "../stores/chatTypes";
+import type { AxetAgentEntry } from "../../app-electron/shared/agentTypes";
 
 // axet-code güncelleme duyurusu için yoklama aralığı. Duyuru bulunana kadar
 // çalışıp sonra duruyor; bulunmadığı sürece yaptığı tek şey bir config okuması.
@@ -533,6 +534,12 @@ export default function AxetCodeHome({
         : null),
     [newBinding, activeSap],
   );
+  // Sohbet ajanı (`--agent`). axet-code ajan verilmezse yapılandırmadaki
+  // `options.default_agent`'ı kullanıyor; seçici onu adıyla gösteriyor ve
+  // seçim sohbete kaydediliyor. Yeni sohbetin seçimi ilk mesaja kadar burada.
+  const [agentList, setAgentList] = useState<AxetAgentEntry[]>([]);
+  const [defaultAgentName, setDefaultAgentName] = useState<string | null>(null);
+  const [newAgent, setNewAgent] = useState<string | null>(null);
   const [models, setModels] = useState<AxetModelEntry[]>([]);
   const [modelsLoading, setModelsLoading] = useState(true);
   const [modelsError, setModelsError] = useState<string | null>(null);
@@ -607,6 +614,7 @@ export default function AxetCodeHome({
             // Alanın hiç olmaması "eski davranış": `cwd`'si olan eski
             // sohbetler sistem gruplarında kalmaya devam ediyor.
             keepInGeneral: s.keepInGeneral === true,
+            agent: s.agent ?? null,
           })),
         );
         // Projeler sohbetlerden AYRI bir liste ama aynı dosyada. Artık var
@@ -779,6 +787,8 @@ export default function AxetCodeHome({
             ...(s.sapLabel ? { sapLabel: s.sapLabel } : {}),
             ...(s.projectId ? { projectId: s.projectId } : {}),
             ...(s.keepInGeneral ? { keepInGeneral: true } : {}),
+            // Ajan seçimi sohbete ait; seçilmediyse (axet varsayılanı) yazılmıyor.
+            ...(s.agent ? { agent: s.agent } : {}),
             createdAt: s.createdAt,
             updatedAt: s.updatedAt,
           };
@@ -1206,6 +1216,19 @@ export default function AxetCodeHome({
     [activeId, pushToast, t],
   );
 
+  // Ajan SOHBETE ait ve her turda `--agent` ile gidiyor (model gibi);
+  // axet-code yapılandırmasına YAZILMIYOR. null = axet varsayılanı.
+  const handleSelectAgent = useCallback(
+    (name: string | null) => {
+      if (activeId) {
+        setSessions((prev) => prev.map((s) => (s.id === activeId ? { ...s, agent: name } : s)));
+      } else {
+        setNewAgent(name);
+      }
+    },
+    [activeId],
+  );
+
   // `handleSend` ve `handleRegenerate` ORTAK gövdesi: istemi çalıştır, akan
   // cevabı sonlandır. Tek fark ikisinin çağrıdan ÖNCE mesaj listesine ne
   // yaptığı (biri kullanıcı mesajı ekler, diğeri eski cevabı atar).
@@ -1223,6 +1246,8 @@ export default function AxetCodeHome({
       // `handleSendNew` bu fonksiyonu `setSessions` çağrısının hemen ardından
       // çağırıyor ve yeni kayıt o an ne `sessions`'ta ne `sessionsRef`'te var.
       sessionProjectId: string | null = null,
+      // Sohbetin ajanı (`--agent`); null = axet-code varsayılanı.
+      sessionAgent: string | null = null,
     ) => {
       const requestId = crypto.randomUUID();
       setSessions((prev) =>
@@ -1260,6 +1285,7 @@ export default function AxetCodeHome({
         model,
         history,
         promptText,
+        sessionAgent,
       );
 
       // Kuyrukta kalan artık metin ATILIYOR: aşağıda mesajın içeriği sonucun
@@ -1488,6 +1514,7 @@ export default function AxetCodeHome({
       // "hangi projede açtım" bilgisi ilk mesaja kadar taslakta bekliyordu.
       projectId: newProjectId,
       keepInGeneral: newKeepInGeneral,
+      agent: newAgent,
     };
     setSessions((prev) => [...prev, session]);
     setActiveId(id);
@@ -1497,6 +1524,7 @@ export default function AxetCodeHome({
     setNewNotice(null);
     setNewProjectId(null);
     setNewKeepInGeneral(true);
+    setNewAgent(null);
     // Geçmiş BOŞ gidiyor, karşılama balonu dahil değil: o balon ajanın
     // ürettiği bir tur değil, bizim bastığımız bir özet. Ajan aynı bilgiyi
     // zaten proje klasöründeki `sap-context.md`den okuyor (bkz. runPrompt'taki
@@ -1509,9 +1537,11 @@ export default function AxetCodeHome({
       defaultModel,
       session.cwd,
       session.projectId,
+      session.agent ?? null,
     );
   }, [
     defaultModel,
+    newAgent,
     newAttachments,
     effectiveNewBinding,
     newDraft,
@@ -1582,6 +1612,7 @@ export default function AxetCodeHome({
       session.model,
       session.cwd,
       session.projectId,
+      session.agent ?? null,
     );
   }, [runPrompt]);
 
@@ -1770,6 +1801,7 @@ export default function AxetCodeHome({
       session.model,
       session.cwd,
       session.projectId,
+      session.agent ?? null,
     );
   }, [runPrompt, sessions]);
   const handleRegenerate = useCallback(() => handleRegenerateSession(activeId), [activeId, handleRegenerateSession]);
@@ -1805,6 +1837,7 @@ export default function AxetCodeHome({
       session.model,
       session.cwd,
       session.projectId,
+      session.agent ?? null,
     );
 
     // İki balon tek balona indiriliyor: kullanıcı açısından bu BİR cevap, ikiye
@@ -2222,10 +2255,11 @@ export default function AxetCodeHome({
   const prewarmTargetRef = useRef<{
     cwd: string;
     model: AxetModelEntry | null;
+    agent: string | null;
     chatId: string;
     messages: ChatMessage[];
     projectId: string | null;
-  }>({ cwd: "", model: null, chatId: "", messages: [], projectId: null });
+  }>({ cwd: "", model: null, agent: null, chatId: "", messages: [], projectId: null });
   const activeDraft = activeId
     ? (sessions.find((s) => s.id === activeId)?.draft ?? "")
     : newDraft;
@@ -2235,6 +2269,7 @@ export default function AxetCodeHome({
       // runPrompt ile aynı klasör kuralı: sohbetin klasörü yoksa çalışma alanı.
       cwd: (session ? session.cwd : (effectiveNewBinding?.cwd ?? null)) || config?.axetWorkspaceDir || "",
       model: session ? session.model : defaultModel,
+      agent: session ? (session.agent ?? null) : newAgent,
       chatId: session ? session.id : newChatIdRef.current,
       // Yeni sohbet geçmişsiz gidiyor (handleSendNew); karşılama balonu sayılmaz.
       messages: session ? session.messages : [],
@@ -2243,14 +2278,14 @@ export default function AxetCodeHome({
   });
 
   const firePrewarm = useCallback((draft: string) => {
-    const { cwd, model, chatId, messages, projectId } = prewarmTargetRef.current;
+    const { cwd, model, agent, chatId, messages, projectId } = prewarmTargetRef.current;
     if (!chatId) return;
     try {
       // Bağlayıcı kararı gönderimdekiyle aynı metinden çıksın: proje talimatı
       // dahil taslak + geçmişin son iki mesajı (bkz. axetChat.ts decideConnectors).
       const text = withProjectInstructions(draft, projects.find((p) => p.id === projectId) ?? null);
       const history = buildHistoryForCall(messages).slice(-2);
-      window.api.prewarmChat(chatId, cwd, model, text, history).catch(() => {});
+      window.api.prewarmChat(chatId, cwd, model, text, history, agent).catch(() => {});
     } catch {
       // ısıtma bir iyileştirme; gönderim yolunu etkilemez
     }
@@ -2277,6 +2312,37 @@ export default function AxetCodeHome({
     // activeDraft BİLEREK yok: taslağa tepki vermek yukarıdaki efektin işi.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prewarmOpenKey]);
+
+  // Ajan değişince önceden açık süreç yanlış ajanla bekliyor: doğru ajanla
+  // yeniden hazırla (havuz anahtarı tutmayanı kendisi kapatıyor). İlk çizimde değil.
+  const activeAgent = activeId ? (sessions.find((s) => s.id === activeId)?.agent ?? null) : newAgent;
+  const agentPrewarmSeen = useRef(false);
+  useEffect(() => {
+    if (!agentPrewarmSeen.current) {
+      agentPrewarmSeen.current = true;
+      return;
+    }
+    if (!prewarmOpenKey) return;
+    const timer = setTimeout(() => firePrewarm(activeDraft), PREWARM_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeAgent]);
+
+  // Ajan listesi (`agent list --json`, ana süreçte 10 dk önbellekli) ve
+  // axet-code'un varsayılan ajanının adı (yapılandırmadan, yalnız okuma).
+  const agentCwd =
+    (activeId ? sessions.find((s) => s.id === activeId)?.cwd : effectiveNewBinding?.cwd) || config?.axetWorkspaceDir || "";
+  const refreshAgents = useCallback(() => {
+    try {
+      window.api.axetAgents?.(agentCwd)?.then((list) => setAgentList(Array.isArray(list) ? list : [])).catch(() => {});
+      window.api.axetDefaultAgent?.()?.then((name) => setDefaultAgentName(typeof name === "string" ? name : null)).catch(() => {});
+    } catch {
+      // seçici bilgisiz kalır; tur yine çalışır
+    }
+  }, [agentCwd]);
+  useEffect(() => {
+    refreshAgents();
+  }, [refreshAgents]);
 
   // axet-code'un güncelleme duyurusu. Değer her turun stderr'inden okunup
   // axetCodeLatestSeen'e kalıcı olarak yazılıyor (bkz. axetCodeVersion.ts
@@ -2432,6 +2498,7 @@ export default function AxetCodeHome({
     // bilgiyi (bağlandık mı, bağlanamadık mı) saklamak demekti.
     messages: (noticeMessage ? [noticeMessage] : []) as ChatMessage[],
     model: defaultModel,
+    agent: newAgent,
     draft: newDraft,
     attachments: newAttachments,
     pending: false,
@@ -2468,6 +2535,10 @@ export default function AxetCodeHome({
             onCancel={handleCancel}
             onAnswerQuestion={handleAnswerQuestion}
             onSelectModel={handleSelectModel}
+            agents={agentList}
+            defaultAgent={defaultAgentName}
+            onSelectAgent={handleSelectAgent}
+            onAgentMenuOpen={refreshAgents}
             onRegenerate={handleRegenerate}
             onContinue={handleContinue}
             onEditMessage={handleEditMessage}
@@ -2540,6 +2611,10 @@ export default function AxetCodeHome({
           onCancel={handleCancel}
           onAnswerQuestion={handleAnswerQuestion}
           onSelectModel={handleSelectModel}
+          agents={agentList}
+          defaultAgent={defaultAgentName}
+          onSelectAgent={handleSelectAgent}
+          onAgentMenuOpen={refreshAgents}
           onRegenerate={handleRegenerate}
           onContinue={handleContinue}
           onEditMessage={handleEditMessage}

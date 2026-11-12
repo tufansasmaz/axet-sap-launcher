@@ -25,6 +25,7 @@ import { isSilentEmptyAnswer } from "./axetChatAnswer";
 import { axetBinaryMessage, axetBinaryStatus } from "./axetCodeVersion";
 import {
   defaultHeadlessDeps,
+  safeAgentName,
   startHeadlessTurn,
   type ChildLike,
   type HeadlessTurn,
@@ -223,9 +224,10 @@ function prewarmKey(
   cwd: string,
   model: AxetModelEntry | null,
   resumeId: string | null,
-  useConnectors: boolean
+  useConnectors: boolean,
+  agent: string | null
 ): PrewarmKey {
-  return { chatId, cwd, model: model ? `${model.provider}/${model.model}` : null, resumeId, useConnectors };
+  return { chatId, cwd, model: model ? `${model.provider}/${model.model}` : null, resumeId, useConnectors, agent };
 }
 
 /** Bir sohbetin ısıtılmış sürecini bırakır (sohbet kapandı/dallandı/iptal). */
@@ -308,7 +310,8 @@ export async function prewarmChat(
   cwd: string,
   model: AxetModelEntry | null,
   draft: string,
-  history: AxetChatMessage[]
+  history: AxetChatMessage[],
+  agent: string | null = null
 ): Promise<void> {
   try {
     if (prewarmStopped || !chatId || chatBusy(chatId)) return;
@@ -321,7 +324,7 @@ export async function prewarmChat(
     const resolvedCwd = cwd && cwd.trim() ? cwd : process.cwd();
     const useConnectors = decideConnectors(history ?? [], draft ?? "");
     const { sessionId } = resumeDecision(chatId, resolvedCwd);
-    prewarmPool().prewarm(prewarmKey(chatId, resolvedCwd, model, sessionId, useConnectors));
+    prewarmPool().prewarm(prewarmKey(chatId, resolvedCwd, model, sessionId, useConnectors, safeAgentName(agent)));
   } catch {
     // ısıtma bir iyileştirme; başarısızlığı tur yolunu etkilemez
   }
@@ -419,9 +422,12 @@ export async function sendChatMessage(
   message: string,
   onChunk?: (text: string) => void,
   onActivity?: (activity: AxetChatActivity) => void,
-  onProgress?: (progress: AxetChatProgress) => void
+  onProgress?: (progress: AxetChatProgress) => void,
+  // Sohbetin seçtiği ajan (`--agent`); null = axet-code varsayılanı.
+  agentChoice: string | null = null
 ): Promise<AxetChatSendResult> {
   const resolvedCwd = cwd && cwd.trim() ? cwd : process.cwd();
+  const agent = safeAgentName(agentChoice);
   const safe = <T>(fn: ((x: T) => void) | undefined) => (x: T) => {
     try {
       fn?.(x);
@@ -488,6 +494,7 @@ export async function sendChatMessage(
       prompt,
       resumeId,
       useConnectors,
+      agent,
       ...(child ? { prewarmed: child } : {}),
       onSessionId: (id) => writeBinding(chatId, { sessionId: id, cwd: resolvedCwd }),
       onChunk: (piece) => {
@@ -603,7 +610,7 @@ export async function sendChatMessage(
     prompt = resumeId ? resumePrompt(message, useConnectors, resolvedCwd) : seedPrompt(history, message, useConnectors, resolvedCwd);
     // Anahtar tutarsa ısıtılmış süreç; tutmazsa havuz onu öldürüyor.
     try {
-      prewarmed = pool ? pool.take(prewarmKey(chatId, resolvedCwd, model, resumeId, useConnectors)) : null;
+      prewarmed = pool ? pool.take(prewarmKey(chatId, resolvedCwd, model, resumeId, useConnectors, agent)) : null;
     } catch {
       prewarmed = null;
     }
@@ -743,6 +750,7 @@ export async function sendChatMessage(
       baglayici: useConnectors,
       isinmis: warmed,
       model: model ? `${model.provider}/${model.model}` : "-",
+      ajan: agent ?? "-",
       // Boş cevap aşağıda hataya çevriliyor; günlük gerçeği söylesin.
       sonuc: empty ? "bos" : "ok"
     });

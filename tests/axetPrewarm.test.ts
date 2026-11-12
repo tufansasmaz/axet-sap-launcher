@@ -72,6 +72,20 @@ describe("axetPrewarm", () => {
     expect(h.logs).toEqual([{ chatId: "c1", sonuc: "acildi" }]);
   });
 
+  it("ajan anahtarın parçası: --agent ile açılıyor; ajan değişince süreç yeniden hazırlanıyor", () => {
+    const h = harness();
+    h.pool.prewarm({ ...KEY, agent: "coder" });
+    expect(h.spawned[0].args).toContain("--agent");
+    expect(h.spawned[0].args).toContain("coder");
+    h.pool.prewarm({ ...KEY, agent: "coder" });
+    expect(h.spawned).toHaveLength(1);
+    h.pool.prewarm({ ...KEY, agent: null });
+    expect(h.killed).toEqual([h.children[0]]);
+    expect(h.spawned).toHaveLength(2);
+    expect(h.spawned[1].args).not.toContain("--agent");
+    expect(h.pool.take({ ...KEY, agent: "coder" })).toBeNull();
+  });
+
   it("aynı anahtar: ikinci spawn yok", () => {
     const h = harness();
     h.pool.prewarm(KEY);

@@ -99,6 +99,9 @@ export interface ChatSession {
   // "SAP sohbetleri" altına değil "Sohbetler" altına düşsün (bkz.
   // shared/types.ts `StoredChatSession.keepInGeneral`). `cwd` dolu olsa bile.
   keepInGeneral: boolean;
+  // Sohbetin axet-code ajanı (`--agent`); null/yok = axet-code varsayılanı
+  // (`options.default_agent`). Diske yalnız seçildiyse yazılıyor.
+  agent?: string | null;
 }
 
 export interface RecentEntry {

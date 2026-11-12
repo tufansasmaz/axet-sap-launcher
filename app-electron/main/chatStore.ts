@@ -1,6 +1,7 @@
 import { app } from "electron";
 import { existsSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { isSafeArg } from "../shared/agentEngines";
 import type {
   AxetChatActivity,
   ChatAttachment,
@@ -117,6 +118,7 @@ const KNOWN_SESSION_KEYS = new Set([
   "sapLabel",
   "projectId",
   "keepInGeneral",
+  "agent",
   "createdAt",
   "updatedAt"
 ]);
@@ -240,6 +242,10 @@ function sanitizeSession(raw: unknown): StoredChatSession | null {
   // BEŞİNCİSİ: "Sohbetler"de kalma tercihi. Yalnızca `true` yazılıyor —
   // alanın hiç olmaması eski (cwd'ye göre gruplanan) sohbet demek.
   const keepInGeneral = s.keepInGeneral === true;
+  // ALTINCISI olmasın: sohbet ajanı. Komut satırına (`--agent`) gidiyor;
+  // güvensiz ad hiç taşınmıyor (axetChat ayrıca süzüyor).
+  const agentRaw = asString(s.agent).trim();
+  const agent = agentRaw && agentRaw.length <= 60 && isSafeArg(agentRaw) ? agentRaw : "";
   return {
     id,
     title: asString(s.title, "…"),
@@ -251,6 +257,7 @@ function sanitizeSession(raw: unknown): StoredChatSession | null {
     ...(sapLabel ? { sapLabel } : {}),
     ...(projectId ? { projectId } : {}),
     ...(keepInGeneral ? { keepInGeneral } : {}),
+    ...(agent ? { agent } : {}),
     ...carryUnknown(s, KNOWN_SESSION_KEYS),
     createdAt,
     updatedAt: asNumber(s.updatedAt, createdAt)

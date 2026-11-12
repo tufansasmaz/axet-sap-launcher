@@ -279,7 +279,9 @@ export interface AxetApi {
     cwd: string,
     model: AxetModelEntry | null,
     history: AxetChatMessage[],
-    message: string
+    message: string,
+    /** Sohbetin ajanı (`--agent`); null = axet-code varsayılanı. */
+    agent?: string | null
   ) => Promise<AxetChatSendResult>;
   cancelChatMessage: (requestId: string) => Promise<void>;
   recoverChatAnswer: (
@@ -310,8 +312,11 @@ export interface AxetApi {
     cwd: string,
     model: AxetModelEntry | null,
     draft: string,
-    history: AxetChatMessage[]
+    history: AxetChatMessage[],
+    agent?: string | null
   ) => Promise<void>;
+  /** axet-code `options.default_agent` (yalnız okuma); yoksa null. */
+  axetDefaultAgent?: () => Promise<string | null>;
   axetUpdateAvailable: () => Promise<AxetUpdateInfo | null>;
   /**
    * Ajanın hafızasını geri sarar (axet-code'da yeni oturum), süreci kapatmadan.

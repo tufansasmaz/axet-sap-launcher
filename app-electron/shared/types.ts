@@ -1165,6 +1165,9 @@ export interface StoredChatSession {
   // Yalnızca `true` yazılıyor; alanın HİÇ olmaması "eski davranış" demek, o
   // yüzden bu iş öncesinde kaydedilmiş sohbetler sistem gruplarında kalıyor.
   keepInGeneral?: boolean;
+  // Sohbetin seçtiği axet-code ajanı (`run --agent`). Yoksa axet-code'un
+  // yapılandırılmış varsayılanı kullanılıyor; yalnız seçildiyse yazılıyor.
+  agent?: string;
   createdAt: number;
   updatedAt: number;
 }

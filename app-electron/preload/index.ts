@@ -401,9 +401,10 @@ const api = {
     cwd: string,
     model: AxetModelEntry | null,
     history: AxetChatMessage[],
-    message: string
+    message: string,
+    agent: string | null = null
   ): Promise<AxetChatSendResult> =>
-    ipcRenderer.invoke("axetChat:send", requestId, chatId, cwd, model, history, message),
+    ipcRenderer.invoke("axetChat:send", requestId, chatId, cwd, model, history, message, agent),
   cancelChatMessage: (requestId: string): Promise<void> => ipcRenderer.invoke("axetChat:cancel", requestId),
   // Yarıda kalmış turun cevabını axet-code'un veritabanından geri getirir.
   // `null` normal bir sonuç: kurtarılacak bir şey yok demek.
@@ -431,8 +432,11 @@ const api = {
     cwd: string,
     model: AxetModelEntry | null,
     draft: string,
-    history: AxetChatMessage[]
-  ): Promise<void> => ipcRenderer.invoke("axetChat:prewarm", chatId, cwd, model, draft, history),
+    history: AxetChatMessage[],
+    agent: string | null = null
+  ): Promise<void> => ipcRenderer.invoke("axetChat:prewarm", chatId, cwd, model, draft, history, agent),
+  // axet-code yapılandırmasındaki varsayılan ajanın adı (yalnız okuma); yoksa null.
+  axetDefaultAgent: (): Promise<string | null> => ipcRenderer.invoke("axetChat:defaultAgent"),
   // axet-code'un kendi güncelleme duyurusu (bizim uygulamamızınki AYRI, o
   // electron-updater'dan `onUpdateStatus` ile geliyor).
   axetUpdateAvailable: (): Promise<AxetUpdateInfo | null> =>

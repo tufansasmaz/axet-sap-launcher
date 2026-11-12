@@ -394,6 +394,13 @@ export const tr = {
   "modelSelector.switched": "Model değiştirildi: {model}",
   "modelSelector.saveFailed": "Model seçimi kaydedilemedi: {message}",
 
+  "agentSelector.title": "Ajan",
+  "agentSelector.heading": "axet.code ajanı",
+  "agentSelector.defaultNamed": "axet varsayılanı ({name})",
+  "agentSelector.defaultUnknown": "axet varsayılanı",
+  "agentSelector.restrictedHint": "Varsayılan ajan “{name}” genel amaçlı değil (güvenlik/yetki odaklı ya da kısıtlı); genel işler için “coder”ı seçin.",
+  "agentSelector.scopeHint": "Seçim yalnız bu sohbet için; axet-code ayarlarınız değişmez.",
+
   "settingsModal.sectionSkills": "Yapay zekâ yetenekleri",
   "skillsSection.roleLabel": "Rolüm",
   "skillsSection.roleLocked":

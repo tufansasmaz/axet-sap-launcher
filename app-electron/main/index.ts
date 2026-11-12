@@ -94,7 +94,7 @@ import { scrubInheritedAdtEnv } from "./adtHttpToken";
 import { readAdtCapabilities } from "./adtCapabilities";
 import { checkForUpdates, downloadUpdate, installUpdate, getLastUpdateStatus } from "./updater";
 import { openInSapLogon } from "./sapLogon";
-import { listAxetModels, getAxetModelConfig, setAxetModel } from "./axetModels";
+import { listAxetModels, getAxetDefaultAgent, getAxetModelConfig, setAxetModel } from "./axetModels";
 import {
   sendChatMessage,
   answerChatQuestion,
@@ -2348,6 +2348,8 @@ ${result.message}`;
 
   ipcMain.handle("axetModels:list", () => listAxetModels());
   ipcMain.handle("axetModels:getCurrent", () => getAxetModelConfig());
+  // Sohbet ajanı seçicisinin "axet varsayılanı (<ad>)" etiketi; yalnız okuma.
+  ipcMain.handle("axetChat:defaultAgent", () => getAxetDefaultAgent());
   ipcMain.handle("axetModels:setCurrent", (_event, kind: AxetModelKind, entry: AxetModelEntry) => setAxetModel(kind, entry));
 
   // Cevap ÜRETİLDİKÇE `axetChat:chunk` ile pencereye push ediliyor (flows
@@ -2363,7 +2365,8 @@ ${result.message}`;
       cwd: string,
       model: AxetModelEntry | null,
       history: AxetChatMessage[],
-      message: string
+      message: string,
+      agent?: unknown
     ) => {
       // askUser bildirimi: tur başına en fazla bir bildirim (callId tekrarı yok).
       const notifiedAskUserCallIds = new Set<string>();
@@ -2392,7 +2395,9 @@ ${result.message}`;
         onActivity,
         // Ajanın planı + bağlam doluluğu. Ayrı bir kanal: bunlar olay değil,
         // her seferinde tam DURUM (bkz. AxetChatProgress).
-        (progress) => mainWindow?.webContents.send("axetChat:progress", requestId, progress)
+        (progress) => mainWindow?.webContents.send("axetChat:progress", requestId, progress),
+        // Sohbetin ajanı; axetChat safeAgentName ile süzüyor.
+        typeof agent === "string" ? agent : null
       );
 
       // Tur sonu bildirimi. İptal edilmişse ve askUser sonradan bitmişse bildirim yok.
@@ -2408,8 +2413,8 @@ ${result.message}`;
   // ve gönderimdeki kararla aynı olmalı. Ateşle-unut; prewarmChat atmıyor.
   ipcMain.handle(
     "axetChat:prewarm",
-    (_event, chatId: string, cwd: string, model: AxetModelEntry | null, draft: string, history: AxetChatMessage[]) =>
-      prewarmChat(chatId, cwd, model, draft, Array.isArray(history) ? history : [])
+    (_event, chatId: string, cwd: string, model: AxetModelEntry | null, draft: string, history: AxetChatMessage[], agent?: unknown) =>
+      prewarmChat(chatId, cwd, model, draft, Array.isArray(history) ? history : [], typeof agent === "string" ? agent : null)
   );
   ipcMain.handle("axetChat:cancel", (_event, requestId: string) => {
     // Süreç ağacı öldürülüyor; "durdu mu" diye ayrı bir karar kanalı yok.

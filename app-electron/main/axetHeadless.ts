@@ -37,6 +37,7 @@ import {
   type AskUserRequest
 } from "./axetToolEvents";
 import { toolInputComplete } from "./toolCallInput";
+import { isSafeArg } from "../shared/agentEngines";
 
 export interface ChildLike {
   pid?: number;
@@ -55,6 +56,11 @@ export interface HeadlessTurnArgs {
   prompt: string;
   resumeId: string | null;
   useConnectors: boolean;
+  /**
+   * Sohbetin seçtiği axet-code ajanı (`--agent`). null/boş: axet-code
+   * yapılandırmadaki `options.default_agent`'ı kullanıyor (ölçüm 1.5.1).
+   */
+  agent?: string | null;
   /**
    * Önceden açılmış süreç (axetPrewarm.ts): verilirse `deps.spawn` çağrılmıyor.
    * Argümanları ve ortamı bu turunkilerle aynı olmalı; havuz anahtarı bunu
@@ -110,10 +116,18 @@ export interface HeadlessTurn {
 const CONTEXT_LIMIT_TOKENS = 1_000_000;
 const RE_CREATED = /Created session for non-interactive run session_id=([0-9a-f-]{36})/i;
 
-export function buildRunArgs(args: Pick<HeadlessTurnArgs, "cwd" | "model" | "resumeId">): string[] {
+/** Ajan adı argümana girebilir mi? Yalnız isSafeArg ve `-` ile başlamayan. */
+export function safeAgentName(agent: string | null | undefined): string | null {
+  const name = typeof agent === "string" ? agent.trim() : "";
+  return name && name.length <= 60 && isSafeArg(name) ? name : null;
+}
+
+export function buildRunArgs(args: Pick<HeadlessTurnArgs, "cwd" | "model" | "resumeId" | "agent">): string[] {
   const out = ["run", "-v", "-q", "--output-format", "json"];
   if (args.resumeId) out.push("--resume", args.resumeId);
   out.push("-c", args.cwd);
+  const agent = safeAgentName(args.agent);
+  if (agent) out.push("--agent", agent);
   if (args.model) out.push("-m", `${args.model.provider}/${args.model.model}`);
   return out;
 }

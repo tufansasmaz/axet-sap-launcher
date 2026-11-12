@@ -3,6 +3,8 @@ import { ArrowUp, BookOpen, FileCode, FolderOpen, Plus, Square } from "lucide-re
 import type { AxetModelEntry, ChatAttachment, FsSearchFilesEntry, SystemTier } from "../../app-electron/shared/types";
 import AttachmentChip from "./AttachmentChip";
 import ModelSelector from "./ModelSelector";
+import AgentSelector from "./AgentSelector";
+import type { AxetAgentEntry } from "../../app-electron/shared/agentTypes";
 import TierBadge from "./TierBadge";
 import { resolveFilesToPaths } from "../lib/attachments";
 import { MENTION_CLASS, renderWithMentions } from "../lib/mentions";
@@ -40,6 +42,12 @@ export interface ChatComposerProps {
   modelsLoading: boolean;
   modelsError: string | null;
   onSelectModel: (entry: AxetModelEntry) => void;
+  /** Sohbet ajanı seçicisi (`--agent`); `onSelectAgent` yoksa çizilmiyor. */
+  agents?: AxetAgentEntry[];
+  agent?: string | null;
+  defaultAgent?: string | null;
+  onSelectAgent?: (name: string | null) => void;
+  onAgentMenuOpen?: () => void;
   attaching: boolean;
   onAttachFiles: () => void;
   onRemoveAttachment: (attachmentId: string) => void;
@@ -75,6 +83,11 @@ export default function ChatComposer({
   modelsLoading,
   modelsError,
   onSelectModel,
+  agents = [],
+  agent = null,
+  defaultAgent = null,
+  onSelectAgent,
+  onAgentMenuOpen,
   attaching,
   onAttachFiles,
   onRemoveAttachment,
@@ -475,6 +488,15 @@ export default function ChatComposer({
             <Plus size={16} />
           </button>
           <div className="ml-auto flex items-center gap-1">
+            {onSelectAgent && (
+              <AgentSelector
+                agents={agents}
+                current={agent}
+                defaultAgent={defaultAgent}
+                onSelect={onSelectAgent}
+                onOpen={onAgentMenuOpen}
+              />
+            )}
             <ModelSelector
               models={models}
               current={model}

@@ -104,6 +104,21 @@ describe("buildRunArgs", () => {
   });
 });
 
+describe("buildRunArgs --agent", () => {
+  it("seçilen ajan --agent ile gidiyor; boş/null yok (axet varsayılanı)", () => {
+    expect(buildRunArgs({ cwd: "C:/p", model: null, resumeId: null, agent: "coder" })).toEqual([
+      "run", "-v", "-q", "--output-format", "json", "-c", "C:/p", "--agent", "coder"
+    ]);
+    expect(buildRunArgs({ cwd: "C:/p", model: null, resumeId: null, agent: null })).not.toContain("--agent");
+    expect(buildRunArgs({ cwd: "C:/p", model: null, resumeId: null, agent: "" })).not.toContain("--agent");
+  });
+  it("güvensiz ajan adı argümana hiç girmiyor", () => {
+    for (const bad of ["-y", "a b", "x;calc", "--model=x", "ä".repeat(3), "a\"b"]) {
+      expect(buildRunArgs({ cwd: "C:/p", model: null, resumeId: null, agent: bad })).not.toContain("--agent");
+    }
+  });
+});
+
 describe("startHeadlessTurn", () => {
   it("ilk tur: oturum kimliği stderr'den, metin veritabanından (mesajlar arası boş satır), sonuç JSON'dan", async () => {
     const h = harness();

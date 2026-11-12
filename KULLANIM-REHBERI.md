@@ -389,7 +389,18 @@ listesi ve bağlanılan sistemler var.
 - **İlk mesaj ~1 saniye içinde başlar.** Yazmaya başlayınca süreç arka planda
   önceden hazırlanır; bağlayıcı gerektiren sistemlerde bağlayıcı yüklemesi ek
   ~4 saniye alır. Süreç her turda ayrı başladığı için "oturum ısınması"
-  beklenmez.
+  beklenmez. Uygulama çökse ya da Görev Yöneticisi'nden kapatılsa bile
+  önceden hazırlanan süreç onunla birlikte kapanır; boş bir istemle kendi
+  başına çalışmaz.
+- **Ajan seçici** (yazı kutusunda, model seçicinin solunda): sohbetin hangi
+  axet-code ajanıyla çalışacağını gösterir ve seçtirir. Bir şey seçmezsen
+  axet-code kendi ayarındaki varsayılan ajanı kullanır; seçici bunu adıyla
+  yazar, ör. **axet varsayılanı (security)**. Varsayılan genel amaçlı değilse
+  (güvenlik/yetki odaklı ya da kısıtlı izinli) simge sarı olur ve genel
+  işler için **coder** seçmeni önerir. Seçim yalnız o sohbete kaydedilir ve
+  her mesajda `--agent` ile gider; axet-code ayarların değişmez. Menüyü
+  açınca liste ve varsayılan yeniden okunur (axet-code'da varsayılanı
+  değiştirdiysen hemen görünür).
 - **Araç çalıştıktan sonra düşen tur yeniden gönderilmez** — ekranda "Devam
   et" butonu çıkar, tıklayınca ajan kaldığı yerden devam eder.
 - **Soru kartı**: Ajan seçenek sunduğunda (ask_user) ekranda seçenek butonları

@@ -30,6 +30,8 @@ export interface PrewarmKey {
   model: string | null;
   resumeId: string | null;
   useConnectors: boolean;
+  /** `--agent`; null/yok = axet-code varsayılanı. Değişince süreç yeniden açılıyor. */
+  agent?: string | null;
 }
 
 export type PrewarmOutcome = "acildi" | "kullanildi" | "uyusmadi" | "bosta-kapandi" | "kendiliginden-kapandi";
@@ -67,7 +69,8 @@ function sameKey(a: PrewarmKey, b: PrewarmKey): boolean {
     a.cwd === b.cwd &&
     a.model === b.model &&
     a.resumeId === b.resumeId &&
-    a.useConnectors === b.useConnectors
+    a.useConnectors === b.useConnectors &&
+    (a.agent ?? null) === (b.agent ?? null)
   );
 }
 
@@ -167,7 +170,10 @@ export function createPrewarmPool(deps: PrewarmDeps): PrewarmPool {
       // (gönderimde anahtar tutmazsa tur kendi sürecini açar). Klasör/model/
       // oturum değiştiyse eski süreç zaten kullanılamaz, hemen değiştiriliyor.
       const onlyConnectors =
-        existing.key.cwd === key.cwd && existing.key.model === key.model && existing.key.resumeId === key.resumeId;
+        existing.key.cwd === key.cwd &&
+        existing.key.model === key.model &&
+        existing.key.resumeId === key.resumeId &&
+        (existing.key.agent ?? null) === (key.agent ?? null);
       if (onlyConnectors && now() - existing.bornAt < cooldownMs) return;
       discard(existing);
       log(key.chatId, "uyusmadi");
@@ -179,7 +185,7 @@ export function createPrewarmPool(deps: PrewarmDeps): PrewarmPool {
 
     let real: ChildLike;
     try {
-      const args = buildRunArgs({ cwd: key.cwd, model: null, resumeId: key.resumeId });
+      const args = buildRunArgs({ cwd: key.cwd, model: null, resumeId: key.resumeId, agent: key.agent ?? null });
       // buildRunArgs `-m`'yi en sona koyuyor; anahtar zaten "provider/model".
       if (key.model) args.push("-m", key.model);
       real = deps.spawn("axet-code", args, { cwd: key.cwd, env: deps.env(key.useConnectors, key.cwd) });

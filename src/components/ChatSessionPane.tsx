@@ -44,6 +44,7 @@ import type {
 } from "../../app-electron/shared/types";
 import ChatBubble, { AskUserCard, ThinkingBubble, type ChatMessage } from "./ChatBubble";
 import ChatComposer from "./ChatComposer";
+import type { AxetAgentEntry } from "../../app-electron/shared/agentTypes";
 import ChatToolRun from "./ChatToolRun";
 import { readDraggedPaths, resolveFilesToPaths } from "../lib/attachments";
 import { useLanguage, useT } from "../i18n";
@@ -100,6 +101,8 @@ export interface ChatSessionData {
   id: string;
   messages: ChatMessage[];
   model: AxetModelEntry | null;
+  // Sohbetin axet-code ajanı; null/yok = axet varsayılanı (bkz. AgentSelector).
+  agent?: string | null;
   draft: string;
   // Henüz gönderilmemiş ekler. Taslak metninden AYRI tutuluyorlar — eskiden
   // dosya yolları doğrudan `draft`'a yazılıyordu (bkz. shared/types.ts
@@ -155,6 +158,11 @@ interface Props {
    */
   onAnswerQuestion: (index: number | number[], customText?: string) => void;
   onSelectModel: (entry: AxetModelEntry) => void;
+  /** Sohbet ajanı seçicisi (bkz. AgentSelector); seçim `session.agent`. */
+  agents?: AxetAgentEntry[];
+  defaultAgent?: string | null;
+  onSelectAgent?: (name: string | null) => void;
+  onAgentMenuOpen?: () => void;
   onRegenerate: () => void;
   /**
    * Yarıda kalmış son cevaba KALDIĞI YERDEN devam ettirir (bkz. `interrupted`).
@@ -249,6 +257,10 @@ export default function ChatSessionPane({
   onCancel,
   onAnswerQuestion,
   onSelectModel,
+  agents,
+  defaultAgent,
+  onSelectAgent,
+  onAgentMenuOpen,
   onRegenerate,
   onContinue,
   onEditMessage,
@@ -851,6 +863,11 @@ export default function ChatSessionPane({
             modelsLoading={modelsLoading}
             modelsError={modelsError}
             onSelectModel={onSelectModel}
+            agents={agents}
+            agent={session.agent ?? null}
+            defaultAgent={defaultAgent}
+            onSelectAgent={onSelectAgent}
+            onAgentMenuOpen={onAgentMenuOpen}
             attaching={attaching}
             onAttachFiles={onAttachFiles}
             onRemoveAttachment={onRemoveAttachment}

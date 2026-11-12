@@ -11,6 +11,7 @@ import type {
 } from "../shared/types";
 import { axetExeCheck } from "./axetExe";
 import { mt } from "./i18n";
+import { isSafeArg } from "../shared/agentEngines";
 
 // axet-code CLI'ının kendi global config dosyası — `axet-code dirs` komutunun
 // ikinci satırında bastırdığı veri dizini (bu makinede canlı doğrulandı:
@@ -82,6 +83,21 @@ function readRawConfig(): Record<string, unknown> {
     return typeof parsed === "object" && parsed !== null ? parsed : {};
   } catch {
     return {};
+  }
+}
+
+/**
+ * axet-code'un varsayılan ajanı (`options.default_agent`). `run` `--agent`
+ * olmadan bunu kullanıyor (`Agent resolved … reason="configured default"`,
+ * ölçüm 1.5.1). YALNIZ okunuyor; bu ayar kullanıcınındır, yazılmıyor.
+ */
+export function getAxetDefaultAgent(): string | null {
+  try {
+    const options = readRawConfig().options as Record<string, unknown> | undefined;
+    const name = options && typeof options.default_agent === "string" ? options.default_agent.trim() : "";
+    return name && name.length <= 60 && isSafeArg(name) ? name : null;
+  } catch {
+    return null;
   }
 }
 

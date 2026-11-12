@@ -580,6 +580,20 @@ describe("ısınmış süreç (İş 1)", () => {
     expect(JSON.stringify(h.logs)).not.toContain("merh");
   });
 
+  it("ajan: tur ve ısıtma aynı ajanla; ajan değişince ısınmış süreç kullanılmıyor", async () => {
+    await chat.prewarmChat("chat-1", "C:/p", MODEL, "merh", [], "coder");
+    expect(spawned[0].args).toEqual(expect.arrayContaining(["--agent", "coder"]));
+    script(() => ({ text: "cevap", sessionId: "S1" }));
+    await chat.sendChatMessage("r1", "chat-1", "C:/p", MODEL, [], "merhaba", () => {}, () => {}, undefined, "coder");
+    expect(calls[0].agent).toBe("coder");
+    expect(calls[0].prewarmed).toBeTruthy();
+    await chat.prewarmChat("chat-1", "C:/p", MODEL, "merh", [], "coder");
+    script(() => ({ text: "cevap", sessionId: "S1" }));
+    await chat.sendChatMessage("r2", "chat-1", "C:/p", MODEL, [], "merhaba", () => {}, () => {}, undefined, null);
+    expect(calls[1].agent).toBeNull();
+    expect(calls[1].prewarmed).toBeFalsy();
+  });
+
   it("isinmis: soru-cevap akışında bile ilk tur ısınmışsa true kalıyor", async () => {
     const ASK = { callId: "q1", question: "Hangi paket?", header: "", options: ["ZA", "ZB"], multiSelect: false };
     await chat.prewarmChat("chat-1", "C:/p", MODEL, "merh", []);
