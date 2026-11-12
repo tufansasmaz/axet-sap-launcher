@@ -25,6 +25,9 @@ import { enqueuePrompt, mergeQueuedIntoDraft, type QueuedPrompt } from "../lib/c
 import { settleAnswer } from "../lib/settleAnswer";
 import { saveDelay } from "../lib/saveDelay";
 import { draftBindingAfterSapChange } from "../lib/sapDraftBinding";
+import { planRateRetry, rateLimitedTurn } from "../lib/chatRateRetry";
+import { normalizeRetryMax } from "../../app-electron/shared/agentErrors";
+import type { ChatRateRetryState } from "./ChatRateRetryStrip";
 import { useT } from "../i18n";
 import { useChatStore } from "../stores/chatStore";
 import { useChatOpen } from "../lib/useChatOpen";
@@ -858,6 +861,10 @@ export default function AxetCodeHome({
   // "Şimdi gönder" istenen sohbetler: turları kesildiğinde sıradaki kutuya
   // dönmüyor, hemen gidiyor (kararlilik-2 R8d).
   const sendNowRef = useRef<Set<string>>(new Set());
+  // Bu açılışta biten turlar: 429 otomatik denemesi yalnız bunlara bakıyor —
+  // diskten yüklenen eski bir 429 hatası açılışta kendiliğinden yeniden
+  // gönderilmemeli.
+  const rateFreshRef = useRef<Set<string>>(new Set());
 
   // "Yeni sohbet" artık kayıt OLUŞTURMUYOR — sadece boş composer'a dönüyor.
   // Gerçek kayıt ilk mesaj gönderilince doğuyor (handleSendNew).
@@ -1393,6 +1400,7 @@ export default function AxetCodeHome({
       // diye işaretleniyor; gönderim aşağıdaki efektte, yeni durum çizildikten
       // sonra yapılıyor.
       flushQueueRef.current.add(sessionId);
+      rateFreshRef.current.add(sessionId);
     },
     [config?.axetWorkspaceDir, projects, t],
   );
@@ -1699,9 +1707,9 @@ export default function AxetCodeHome({
   // tohumlanıyor). Oturum `--resume` edildiği için bu şart: sarılmazsa ajan
   // az önceki cevabını hatırlıyor ve "yeniden üret" bir tekrar değil, kendi
   // cevabının üstüne konuşma oluyor — kullanıcının istediği şeyin tersi.
-  const handleRegenerate = useCallback(async () => {
-    if (!activeId) return;
-    const session = sessions.find((s) => s.id === activeId);
+  const handleRegenerateSession = useCallback(async (targetId: string | null) => {
+    if (!targetId) return;
+    const session = sessions.find((s) => s.id === targetId);
     if (!session || session.pending) return;
     const msgs = session.messages;
     const lastIndex = msgs.length - 1;
@@ -1719,22 +1727,23 @@ export default function AxetCodeHome({
 
     setSessions((prev) =>
       prev.map((s) =>
-        s.id === activeId ? { ...s, messages: msgs.slice(0, lastIndex) } : s,
+        s.id === targetId ? { ...s, messages: msgs.slice(0, lastIndex) } : s,
       ),
     );
     // BEKLENİYOR ama beklediği şey sıfırlamanın BİTMESİ değil, BAŞLAMASI:
     // sıfırlama IPC'si gönderim IPC'sinden önce gitmeli, yoksa yeni mesaj
     // eski oturuma gidip tarih de silinmemiş olurdu.
-    await window.api.resetChatHistory(activeId).catch(() => false);
+    await window.api.resetChatHistory(targetId).catch(() => false);
     await runPrompt(
-      activeId,
+      targetId,
       prompt,
       historyForCall,
       session.model,
       session.cwd,
       session.projectId,
     );
-  }, [activeId, runPrompt, sessions]);
+  }, [runPrompt, sessions]);
+  const handleRegenerate = useCallback(() => handleRegenerateSession(activeId), [activeId, handleRegenerateSession]);
 
   // Yarıda kalmış son cevabı KALDIĞI YERDEN sürdür (bkz. `interrupted`).
   //
@@ -1744,9 +1753,9 @@ export default function AxetCodeHome({
   // düşüyor; tur kendiliğinden devam edemiyor (axetChatRecovery yalnızca
   // o ana kadarki metni geri getirebiliyor). Sürdürmenin tek yolu yeni bir
   // tur — ama ajanın yarım metni görmesi şartıyla.
-  const handleContinue = useCallback(async () => {
-    if (!activeId) return;
-    const session = sessions.find((s) => s.id === activeId);
+  const handleContinueSession = useCallback(async (sessionId: string | null) => {
+    if (!sessionId) return;
+    const session = sessions.find((s) => s.id === sessionId);
     if (!session || session.pending) return;
     const msgs = session.messages;
     const last = msgs.length > 0 ? msgs[msgs.length - 1] : null;
@@ -1754,14 +1763,14 @@ export default function AxetCodeHome({
     // orada çiziyor, bu ikinci kapı IPC gecikmesine karşı.
     if (!last || last.role !== "assistant" || !last.interrupted || last.error)
       return;
-    const targetId = last.id;
+    const targetMsgId = last.id;
 
     // Geçmişe YARIM CEVAP DA giriyor (`slice` son mesajı kesmiyor): ajan neyi
     // yazdığını görmeden "kaldığın yerden devam et" anlamsız bir istem olurdu.
     const historyForCall = buildHistoryForCall(msgs);
 
     await runPrompt(
-      activeId,
+      sessionId,
       t("axetCodeHome.continuePrompt"),
       historyForCall,
       session.model,
@@ -1775,12 +1784,12 @@ export default function AxetCodeHome({
     // düğme yeniden denenebilir olsun.
     setSessions((prev) =>
       prev.map((s) => {
-        if (s.id !== activeId) return s;
+        if (s.id !== sessionId) return s;
         const tail =
           s.messages.length > 0 ? s.messages[s.messages.length - 1] : null;
         if (
           !tail ||
-          tail.id === targetId ||
+          tail.id === targetMsgId ||
           tail.role !== "assistant" ||
           tail.error
         )
@@ -1798,7 +1807,7 @@ export default function AxetCodeHome({
           messages: s.messages
             .filter((m) => m.id !== tail.id)
             .map((m) =>
-              m.id === targetId
+              m.id === targetMsgId
                 ? {
                     ...m,
                     content: `${m.content.trimEnd()}\n\n${extra}`,
@@ -1813,7 +1822,87 @@ export default function AxetCodeHome({
         };
       }),
     );
-  }, [activeId, runPrompt, sessions, t]);
+  }, [runPrompt, sessions, t]);
+  const handleContinue = useCallback(() => handleContinueSession(activeId), [activeId, handleContinueSession]);
+
+  // --- 429 sonrası otomatik deneme (kararlilik-2 R4, bkz. chatRateRetry.ts) ---
+  // Zincir: son başarılı turdan beri gönderilen otomatik deneme sayısı. Bir
+  // mesaja yalnızca bir kez karar veriliyor (`rateHandledRef`); kullanıcı yeni
+  // mesaj yazarsa ya da tur başlarsa bekleyen deneme iptal ediliyor.
+  const [rateRetry, setRateRetry] = useState<Record<string, ChatRateRetryState>>({});
+  const rateAttemptsRef = useRef(new Map<string, number>());
+  const rateHandledRef = useRef(new Map<string, string>());
+  const rateTimersRef = useRef(new Map<string, { msgId: string; timer: ReturnType<typeof setTimeout> }>());
+  const regenerateRef = useRef(handleRegenerateSession);
+  regenerateRef.current = handleRegenerateSession;
+  const continueRef = useRef(handleContinueSession);
+  continueRef.current = handleContinueSession;
+  const rateAuto = config?.agentAutoRetry ?? true;
+  const rateMax = normalizeRetryMax(config?.agentRetryMax);
+
+  const dropRateRetry = useCallback((sessionId: string) => {
+    const pendingTimer = rateTimersRef.current.get(sessionId);
+    if (pendingTimer) clearTimeout(pendingTimer.timer);
+    rateTimersRef.current.delete(sessionId);
+    setRateRetry((prev) => {
+      if (!(sessionId in prev)) return prev;
+      const next = { ...prev };
+      delete next[sessionId];
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    for (const s of sessions) {
+      const last = s.messages.length > 0 ? s.messages[s.messages.length - 1] : null;
+      const scheduled = rateTimersRef.current.get(s.id);
+      if (scheduled && (s.pending || !last || last.id !== scheduled.msgId)) dropRateRetry(s.id);
+      if (s.pending || !last) continue;
+      const kind = rateLimitedTurn(last);
+      if (!kind) {
+        // Zincir başarılı (ya da 429 dışı) bir turla bitti.
+        rateAttemptsRef.current.delete(s.id);
+        if (rateRetry[s.id]?.exhausted) dropRateRetry(s.id);
+        continue;
+      }
+      if (rateHandledRef.current.get(s.id) === last.id) continue;
+      if (!rateFreshRef.current.delete(s.id)) continue;
+      rateHandledRef.current.set(s.id, last.id);
+      const attempts = rateAttemptsRef.current.get(s.id) ?? 0;
+      const plan = planRateRetry(last, attempts, { auto: rateAuto, max: rateMax });
+      if (!plan) {
+        if (rateAuto && attempts > 0) setRateRetry((prev) => ({ ...prev, [s.id]: { attempt: attempts, max: rateMax, at: 0, exhausted: true } }));
+        continue;
+      }
+      const sessionId = s.id;
+      const timer = setTimeout(() => {
+        rateTimersRef.current.delete(sessionId);
+        rateAttemptsRef.current.set(sessionId, plan.attempt);
+        setRateRetry((prev) => {
+          const next = { ...prev };
+          delete next[sessionId];
+          return next;
+        });
+        void (plan.kind === "continue" ? continueRef.current(sessionId) : regenerateRef.current(sessionId));
+      }, plan.delayMs);
+      rateTimersRef.current.set(sessionId, { msgId: last.id, timer });
+      setRateRetry((prev) => ({ ...prev, [sessionId]: { attempt: plan.attempt, max: rateMax, at: Date.now() + plan.delayMs } }));
+    }
+  }, [sessions, rateAuto, rateMax, dropRateRetry, rateRetry]);
+
+  // Ekran kapanırken bekleyen zamanlayıcılar kalmasın.
+  useEffect(() => {
+    const timers = rateTimersRef.current;
+    return () => {
+      for (const { timer } of timers.values()) clearTimeout(timer);
+      timers.clear();
+    };
+  }, []);
+
+  const handleCancelRateRetry = useCallback(() => {
+    if (!activeId) return;
+    dropRateRetry(activeId);
+  }, [activeId, dropRateRetry]);
 
   const handleCancel = useCallback(() => {
     if (!activeSession?.requestId) return;
@@ -2323,6 +2412,8 @@ export default function AxetCodeHome({
             onUnqueue={handleUnqueue}
             onDropQueued={handleDropQueued}
             onSendQueuedNow={handleSendQueuedNow}
+            rateRetry={rateRetry[session.id] ?? null}
+            onCancelRateRetry={handleCancelRateRetry}
             onAttachFiles={handleAttachFiles}
             onFilesResolved={(paths) => addAttachments(session.id, paths)}
             onRemoveAttachment={(attachmentId) =>

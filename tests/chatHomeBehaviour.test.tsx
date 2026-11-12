@@ -322,6 +322,58 @@ describe("mesaj kuyruğu", () => {
     expect(screen.queryByTestId("chat-queued")).toBeNull();
   });
 
+  // kararlilik-2 R4: portal 429 ile biten tur, artan beklemeyle kendiliğinden
+  // yeniden deneniyor (Tur 9 ajan kuralları), iptal edilebiliyor.
+  const RATE = 'POST "https://portal/v1/messages": 429 Too Many Requests {"message":"Too many tokens, please wait before trying again."}';
+
+  it("429 ile biten tur bekleme sonrası kendiliğinden yeniden gönderiliyor", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const { calls, send } = setupSend();
+      const reset = vi.fn(() => Promise.resolve(true));
+      const api = (window as unknown as { api: Record<string, unknown> }).api;
+      (window as unknown as { api: unknown }).api = new Proxy(api, {
+        get: (target, k: string) => (k === "resetChatHistory" ? reset : (target as Record<string, unknown>)[k])
+      });
+      const box = await openChat();
+      type(box, "birinci");
+      await wait(0);
+      await act(async () => calls[0].resolve({ ok: false, error: RATE, text: "" }));
+      await wait(0);
+      expect(screen.getByTestId("chat-rate-retry").textContent).toContain("1/3. deneme");
+      expect(screen.getByTestId("chat-rate-retry").textContent).toMatch(/parçalara bölmek/);
+      await act(async () => {
+        vi.advanceTimersByTime(13_000);
+      });
+      await wait(0);
+      expect(send).toHaveBeenCalledTimes(2);
+      expect(calls[1].prompt).toContain("birinci");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("429 otomatik denemesi iptal edilebiliyor", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const { calls, send } = setupSend();
+      const box = await openChat();
+      type(box, "birinci");
+      await wait(0);
+      await act(async () => calls[0].resolve({ ok: false, error: RATE, text: "" }));
+      await wait(0);
+      fireEvent.click(screen.getByTitle("Otomatik denemeyi iptal et"));
+      expect(screen.queryByTestId("chat-rate-retry")).toBeNull();
+      await act(async () => {
+        vi.advanceTimersByTime(20_000);
+      });
+      await wait(0);
+      expect(send).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("şeritten silinebiliyor ya da kutuya geri alınabiliyor", async () => {
     setupSend();
     const box = await openChat();

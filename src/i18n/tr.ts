@@ -815,6 +815,11 @@ export const tr = {
   "chatQueue.restore": "Kutuya geri al",
   "chatQueue.drop": "Sıradan çıkar",
   "chatQueue.sendNow": "Şimdi gönder (mevcut turu durdurur)",
+  // 429 sonrası otomatik deneme (Ayarlar > Ajanlar: Otomatik yeniden dene / En çok deneme).
+  "chatRateRetry.waiting": "Portal istek sınırına takıldı (429). {attempt}/{max}. deneme {seconds} sn sonra",
+  "chatRateRetry.exhausted": "Portal istek sınırı sürüyor (429); {max} otomatik deneme bitti",
+  "chatRateRetry.hint": "Büyük analizleri parçalara bölmek (ör. önce liste, sonra tek tek ayrıntı) sınıra takılmayı azaltır.",
+  "chatRateRetry.cancel": "Otomatik denemeyi iptal et",
   "chatAttention.working": "Çalışıyor",
   "chatAttention.unseen": "Yeni cevap",
   "chatAttention.asking": "Cevabını bekliyor",

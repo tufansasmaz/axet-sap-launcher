@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
+import ChatRateRetryStrip, { type ChatRateRetryState } from "./ChatRateRetryStrip";
 import {
   AlertTriangle,
   ArrowDown,
@@ -163,6 +164,9 @@ interface Props {
   onDropQueued: () => void;
   /** Mevcut turu kesip sıradakini hemen gönderir (kararlilik-2 R8d). */
   onSendQueuedNow?: () => void;
+  /** 429 sonrası bekleyen otomatik deneme (kararlilik-2 R4). */
+  rateRetry?: ChatRateRetryState | null;
+  onCancelRateRetry?: () => void;
   onAttachFiles: () => void;
   onFilesResolved: (paths: string[]) => void;
   onRemoveAttachment: (attachmentId: string) => void;
@@ -246,6 +250,8 @@ export default function ChatSessionPane({
   onUnqueue,
   onDropQueued,
   onSendQueuedNow,
+  rateRetry = null,
+  onCancelRateRetry,
   onAttachFiles,
   onFilesResolved,
   onRemoveAttachment,
@@ -757,6 +763,12 @@ export default function ChatSessionPane({
                 {t("chatEditUndo.undo")}
               </button>
             </div>
+          </div>
+        )}
+
+        {rateRetry && (
+          <div className={COLUMN}>
+            <ChatRateRetryStrip state={rateRetry} onCancel={() => onCancelRateRetry?.()} />
           </div>
         )}
 
