@@ -63,7 +63,7 @@ export const en: Record<TranslationKey, string> = {
   "activeContext.unverified": "Connection could not be verified — ADT calls may fail",
   "activeContext.showSystem": "Show system · {path}",
   "activeContext.guiSession": "SAP GUI session · {system} {title}",
-  "activeContext.clear": "Clear active context (does not close the connection)",
+  "activeContext.clear": "Disconnect (this system's ADT server and RFC bridge are stopped)",
   "activeContext.launcherSystem": "aXet SAP Logon is connected to: {system}, client {client}",
   "activeContext.mismatch": "different system",
   "activeContext.mismatchHint": "SAP GUI screen is {gui}, aXet SAP Logon connection is {launcher} — not the same system.",

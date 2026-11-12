@@ -69,7 +69,7 @@ export const tr = {
   "activeContext.unverified": "Bağlantı doğrulanamadı — ADT çağrıları başarısız olabilir",
   "activeContext.showSystem": "Sistemi göster · {path}",
   "activeContext.guiSession": "SAP GUI oturumu · {system} {title}",
-  "activeContext.clear": "Aktif bağlamı temizle (bağlantıyı kapatmaz)",
+  "activeContext.clear": "Bağlantıyı kes (bu sistemin ADT sunucusu ve RFC köprüsü kapanır)",
   "activeContext.launcherSystem": "aXet SAP Logon bu sisteme bağlı: {system}, client {client}",
   "activeContext.mismatch": "farklı sistem",
   "activeContext.mismatchHint": "SAP GUI ekranı {gui}, aXet SAP Logon bağlantısı {launcher} — aynı sistem değil.",

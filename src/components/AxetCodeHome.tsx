@@ -24,6 +24,7 @@ import { mergeToolStep } from "../lib/toolSteps";
 import { enqueuePrompt, mergeQueuedIntoDraft, type QueuedPrompt } from "../lib/chatQueue";
 import { settleAnswer } from "../lib/settleAnswer";
 import { saveDelay } from "../lib/saveDelay";
+import { draftBindingAfterSapChange } from "../lib/sapDraftBinding";
 import { useT } from "../i18n";
 import { useChatStore } from "../stores/chatStore";
 import { useChatOpen } from "../lib/useChatOpen";
@@ -470,6 +471,21 @@ export default function AxetCodeHome({
   // false, elle "Yeni sohbet" ise true. Başlangıçta true: uygulama açılışındaki
   // boş composer elle açılmış bir sohbet sayılıyor.
   const [newKeepInGeneral, setNewKeepInGeneral] = useState(true);
+  // Bağlantı kesilince / başka sisteme geçilince taslak eski sistemin
+  // klasöründe kalmasın (bkz. sapDraftBinding.ts). Karşılama balonu da o
+  // bağlantınındı, onunla gidiyor.
+  const previousSapDirRef = useRef<string | null>(activeSap?.projectDir ?? null);
+  useEffect(() => {
+    const previous = previousSapDirRef.current;
+    const next = activeSap?.projectDir ?? null;
+    previousSapDirRef.current = next;
+    if (previous === next) return;
+    const kept = draftBindingAfterSapChange(previous, next, newBinding);
+    if (kept === newBinding) return;
+    setNewBinding(kept);
+    setNewNotice(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSap?.projectDir]);
   // Kullanıcının kendi kurduğu projeler (bkz. shared/types.ts `ChatProject`).
   // Sohbetlerle AYNI dosyada saklanıyorlar (chat-sessions.json): proje bir
   // sohbet düzenlemesi, ayrı bir dosya iki kaynağın birbirinden kayması

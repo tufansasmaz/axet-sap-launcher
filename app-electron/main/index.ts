@@ -74,9 +74,10 @@ import { createRulesStore } from "./memoryRulesStore";
 import { createMemoryService } from "./memoryService";
 import { browserSession, liveBrowserGuest } from "./browserLive";
 import type { ChangesFailure } from "../shared/changesTypes";
-import { stopAllRfcBridges } from "./rfcBridgeManager";
-import { stopAllReadonlyServers } from "./adtReadonlyServerManager";
-import { stopApprovalServer } from "./sapWrite/server";
+import { stopAllRfcBridges, stopRfcBridge } from "./rfcBridgeManager";
+import { stopAllReadonlyServers, stopReadonlyServer } from "./adtReadonlyServerManager";
+import { closeWriteSession, stopApprovalServer } from "./sapWrite/server";
+import { disconnectActiveSap } from "./sapDisconnect";
 import { setApprovalCandidateProvider } from "./sapWrite/approvalEvents";
 import { createPaneApprovalRouter } from "./sapWrite/paneApprovals";
 import { registerSapWriteIpc } from "./sapWrite/ipc";
@@ -1431,8 +1432,17 @@ function registerIpc(): void {
   // Temizleme yalnızca SAP tarafı için var ve kullanıcı eylemi (başlık
   // çubuğundaki rozetin çarpısı). GUI tarafı kendi kendini yönetiyor:
   // oturum kapanınca ekran zaten `null` yayınlıyor.
+  // Kesme GERÇEK: o sistemin köprüsü, 8787'deki ADT sunucusu ve onay oturumu
+  // da kapanıyor (bkz. sapDisconnect.ts). Eskiden yalnız rozet siliniyordu.
   ipcMain.handle("context:clearSap", () => {
-    clearActiveSap();
+    disconnectActiveSap({
+      getSap: () => getActiveContext().sap,
+      clearSap: clearActiveSap,
+      stopRfcBridge,
+      stopAdtServer: stopReadonlyServer,
+      closeWriteSession,
+      log: appLog
+    });
     return getActiveContext();
   });
 
