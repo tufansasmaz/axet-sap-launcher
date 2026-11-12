@@ -360,6 +360,7 @@ const api = {
   readImageDataUrl: (filePath: string) => ipcRenderer.invoke("fs:readImageDataUrl", filePath),
   openInExplorer: (filePath: string) => ipcRenderer.invoke("fs:openInExplorer", filePath),
   openExternal: (filePath: string) => ipcRenderer.invoke("fs:openExternal", filePath),
+  openAttachment: (filePath: string): Promise<boolean> => ipcRenderer.invoke("chatAttachments:open", filePath),
   openExternalUrl: (url: string) => ipcRenderer.invoke("shell:openUrl", url),
   writeClipboard: (text: string) => ipcRenderer.invoke("clipboard:writeText", text),
   discoverAxetFlowsLiveUrl: () => ipcRenderer.invoke("axetFlowsLive:discoverUrl"),

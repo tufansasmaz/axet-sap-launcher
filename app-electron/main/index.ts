@@ -79,6 +79,7 @@ import { stopAllReadonlyServers, stopReadonlyServer } from "./adtReadonlyServerM
 import { closeWriteSession, stopApprovalServer } from "./sapWrite/server";
 import { disconnectActiveSap } from "./sapDisconnect";
 import { createProcessErrorReporter } from "./processErrors";
+import { attachmentOpenAction } from "./attachmentOpen";
 import { setApprovalCandidateProvider } from "./sapWrite/approvalEvents";
 import { createPaneApprovalRouter } from "./sapWrite/paneApprovals";
 import { registerSapWriteIpc } from "./sapWrite/ipc";
@@ -2391,6 +2392,22 @@ function registerIpc(): void {
     saveClipboardAttachment(fileName, base64Data)
   );
   ipcMain.handle("chatAttachments:preview", (_event, filePath: string) => readAttachmentPreview(filePath));
+  // Ek çipinden "dışarıda aç" (bkz. attachmentOpen.ts): kök dışındaki belge/
+  // görsel açılıyor, başka her şey yalnız klasörde gösteriliyor.
+  ipcMain.handle("chatAttachments:open", async (_event, filePath: unknown): Promise<boolean> => {
+    const exists = typeof filePath === "string" && path.isAbsolute(filePath) && existsSync(filePath);
+    const action = attachmentOpenAction(filePath, exists && isPathAllowed(loadConfig(), filePath as string), exists);
+    if (action === "none") return false;
+    try {
+      if (action === "reveal") {
+        shell.showItemInFolder(filePath as string);
+        return true;
+      }
+      return (await shell.openPath(filePath as string)) === "";
+    } catch {
+      return false;
+    }
+  });
 
   // Sohbet geçmişi kalıcılığı (Faz 2). Kaydetme senkron ve hızlı (tek JSON
   // dosyası + rename); renderer zaten debounce ediyor, burada ayrıca kuyruk

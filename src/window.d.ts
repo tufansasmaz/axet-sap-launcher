@@ -241,6 +241,7 @@ export interface AxetApi {
   readImageDataUrl: (filePath: string) => Promise<FsReadImageResult>;
   openInExplorer: (filePath: string) => Promise<void>;
   openExternal: (filePath: string) => Promise<void>;
+  openAttachment: (filePath: string) => Promise<boolean>;
   openExternalUrl: (url: string) => Promise<{ ok: boolean; error?: string }>;
   /** Panoya yazar. Tarayıcının Async Clipboard API'si düşerse yedek yol (bkz. CopyButton). */
   writeClipboard: (text: string) => Promise<{ ok: boolean; error?: string }>;

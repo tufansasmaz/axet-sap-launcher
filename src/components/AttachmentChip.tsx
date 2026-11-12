@@ -89,7 +89,7 @@ export default function AttachmentChip({
   // yok — hata için tüm ağacı `pushToast` ile donatmak, kazandırdığından çok
   // bağ kurardı.
   const openExternal = () => {
-    window.api.openExternal(attachment.path).catch(() => {});
+    window.api.openAttachment(attachment.path).catch(() => {});
   };
   const activate = () => (preview ? setZoomed(true) : openExternal());
   const actionTitle = preview ? t("axetCodeHome.attachmentZoom") : t("axetCodeHome.attachmentOpen");
