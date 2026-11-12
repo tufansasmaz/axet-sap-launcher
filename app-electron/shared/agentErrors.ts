@@ -219,3 +219,12 @@ export function leadErrorAdvice(cls: AgentErrorClass): string {
   if (cls === "history" || cls === "context") return "Oneri: bu ajanin oturumu kullanilamaz; gorevi bostaki baska ajana ya da yeni ajana ver.";
   return "Oneri: nedeni ntt-team status ile oku; yeniden ata, baska ajana ver ya da yeni ajan ac.";
 }
+
+/**
+ * axet-code (1.5.1, ölçüldü): `run --agent <ad>` ana ajan olamayan bir ajanla
+ * `Agent "<ad>" cannot be used as the main agent (mode "subagent")` ile düşüyor.
+ * Sohbet bunu tanıyıp anlaşılır mesaj veriyor ve seçimi varsayılana döndürüyor.
+ */
+export function isSubagentOnlyError(text: string | null | undefined): boolean {
+  return typeof text === "string" && /cannot be used as the main agent/i.test(text);
+}

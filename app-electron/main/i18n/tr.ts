@@ -74,6 +74,9 @@ export const MAIN_TR = {
   "sapPane.sure_doldu": "SAP yazma onayı 10 dakika cevapsız kaldı — yazma yapılmadı.",
   "sapPane.kapandi": "SAP yazma oturumu kapandı — yazma yapılmadı.",
 
+  // --- axetChat.ts (ana ajan olamayan ajan, kucukler-3) ---
+  "chat.agentSubagentOnly": "Bu ajan yalnız alt ajan olarak çalışabilir; başka ajan seç. Seçim varsayılana döndü.",
+
   // --- axetChat.ts (boş cevap kapısı) ---
   "chat.emptyAnswerTui":
     "axet-code turu bitirdi ama hiçbir cevap metni üretmedi. Aynı mesajı \"Yeniden üret\" ile bir kez daha deneyin; tekrarlıyorsa axet-code sürümünüzü Company Portal'dan güncelleyin.",

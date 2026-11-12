@@ -1044,6 +1044,8 @@ export interface AxetChatSendResult {
   text: string;
   error?: string;
   cancelled?: boolean;
+  /** Seçilen ajan ana ajan olamıyor ("cannot be used as the main agent"): sohbet seçimi varsayılana döner. */
+  agentRejected?: boolean;
   /**
    * Bu mesaj bağlayıcılar AÇIKKEN mi çalıştırıldı? `auto` kipinde karar bir
    * TAHMİNDİR ve tahmin yanılabilir — bu alan olmasa yanılgı sessiz olurdu:

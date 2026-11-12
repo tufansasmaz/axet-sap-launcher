@@ -208,6 +208,12 @@ export interface AxetAgentEntry {
   scope: string;
   permissions: string;
   description: string;
+  /**
+   * Tanım dosyasının ön bilgisindeki `mode:` (primary | subagent | all).
+   * `agent list --json` vermiyor; yalnız `path`'i olan (kullanıcı/proje)
+   * ajanlarda dosyadan okunuyor. Yerleşiklerde yok.
+   */
+  mode?: string;
 }
 
 /** Tur 12: kabuk bölmesinde kullanıcı bir motor başlattı (ana süreç → renderer). */

@@ -71,6 +71,9 @@ export const MAIN_EN = {
   "sapPane.sure_doldu": "SAP write approval went unanswered for 10 minutes — nothing was written.",
   "sapPane.kapandi": "SAP write session closed — nothing was written.",
 
+  // --- axetChat.ts (agent that cannot be the main agent, kucukler-3) ---
+  "chat.agentSubagentOnly": "This agent can only run as a subagent; pick another agent. The choice went back to the default.",
+
   // --- axetChat.ts (empty answer gate) ---
   "chat.emptyAnswerTui":
     "axet-code finished the turn without producing any answer text. Try the same message once more with \"Regenerate\"; if it keeps happening, update axet-code from Company Portal.",

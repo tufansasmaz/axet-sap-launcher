@@ -1292,6 +1292,11 @@ export default function AxetCodeHome({
       // tam metniyle değiştiriliyor, yani kaybolan bir şey yok. Bırakılsaydı
       // tamamlanmış cevabın sonuna tekrar eklenirdi.
       streamQueue.current.delete(requestId);
+      // Seçilen ajan ana ajan olamıyor (kucukler-3): sohbetin seçimi
+      // varsayılana dönsün; hata metni (chat.agentSubagentOnly) cevapta görünüyor.
+      if (result.agentRejected) {
+        setSessions((prev) => prev.map((s) => (s.id === sessionId ? { ...s, agent: null } : s)));
+      }
       // Güncelleyici tembel çalışabiliyor; bayrak şimdi okunup siliniyor.
       const sendNow = sendNowRef.current.delete(sessionId);
       // Takıldığı için durdurulan tur: kaç dakika sessiz kaldığı (yoksa null).

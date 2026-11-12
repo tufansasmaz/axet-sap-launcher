@@ -408,7 +408,11 @@ listesi ve bağlanılan sistemler var.
   işler için **coder** seçmeni önerir. Seçim yalnız o sohbete kaydedilir ve
   her mesajda `--agent` ile gider; axet-code ayarların değişmez. Menüyü
   açınca liste ve varsayılan yeniden okunur (axet-code'da varsayılanı
-  değiştirdiysen hemen görünür).
+  değiştirdiysen hemen görünür). Yalnız alt ajan olarak çalışabilen ajanlar
+  listede yok: kendi/proje ajanlarında tanım dosyasındaki `mode: subagent`
+  okunur, yerleşiklerden `guide` ve `task` gizlidir. Yine de seçilen ajan
+  ana ajan olamazsa cevapta "Bu ajan yalnız alt ajan olarak çalışabilir;
+  başka ajan seç" yazar ve seçim varsayılana döner.
 - **Araç çalıştıktan sonra düşen tur yeniden gönderilmez** — ekranda "Devam
   et" butonu çıkar, tıklayınca ajan kaldığı yerden devam eder.
 - **Soru kartı**: Ajan seçenek sunduğunda (ask_user) ekranda seçenek butonları

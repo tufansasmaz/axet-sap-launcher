@@ -19,14 +19,17 @@ export function effectiveAgent(choice: string | null | undefined, defaultAgent: 
 }
 
 /**
- * Ana ajan olamayan yerleşik ajanlar. `agent list --json` kipi (mode)
- * vermiyor; 1.5.1'de ölçüldü: `run --agent guide|task` → `Agent "…" cannot be
- * used as the main agent (mode "subagent")`. coder, security, agent-builder ve
- * kullanıcı ajanı code-analyzer ana ajan olabiliyor.
+ * Ana ajan olamayan YERLEŞİK ajanlar — yalnız kipi bilinmeyenler için.
+ * `agent list --json` kipi (mode) vermiyor (1.5.1, 2026-11-12 yeniden
+ * ölçüldü); kullanıcı/proje ajanlarının kipi tanım dosyasından okunuyor
+ * (`AxetAgentEntry.mode`), yerleşiklerin dosyası yok. Ölçüm: `run --agent
+ * guide|task` → `Agent "…" cannot be used as the main agent (mode "subagent")`.
+ * Burada olmayan bir ajan yine de düşerse sohbet mesaj verip seçimi
+ * varsayılana döndürüyor (agentRejected).
  */
 export const SUBAGENT_ONLY = new Set(["guide", "task"]);
 
-/** Seçicide gösterilecek ajanlar: ana ajan olamayanlar hariç. */
-export function selectableAgents<T extends { name: string }>(agents: T[]): T[] {
-  return agents.filter((a) => !SUBAGENT_ONLY.has(a.name));
+/** Seçicide gösterilecek ajanlar: kipi `subagent` olanlar ve kipi bilinmeyen yerleşik alt ajanlar hariç. */
+export function selectableAgents<T extends { name: string; mode?: string }>(agents: T[]): T[] {
+  return agents.filter((a) => (a.mode ? a.mode !== "subagent" : !SUBAGENT_ONLY.has(a.name)));
 }

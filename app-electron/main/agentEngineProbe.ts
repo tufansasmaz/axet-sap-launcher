@@ -209,7 +209,26 @@ function text(value: unknown, max: number): string {
   return typeof value === "string" ? value.trim().slice(0, max) : "";
 }
 
-export function parseAxetAgentList(raw: string): AxetAgentEntry[] {
+const AGENT_MODES = new Set(["primary", "subagent", "all"]);
+
+/**
+ * Ajan tanım dosyasının ön bilgisindeki `mode:` (yalnız `---` blokları arası;
+ * gövde sayılmaz). Okunamazsa ya da tanınmayan değerse undefined.
+ */
+export function agentModeFromFile(file: string, read: (p: string) => string = (p) => readFileSync(p, "utf8")): string | undefined {
+  try {
+    const text = read(file).replace(/^\uFEFF/, "");
+    const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(text);
+    if (!fm) return undefined;
+    const m = /^mode:\s*["']?([A-Za-z]+)["']?\s*$/m.exec(fm[1]);
+    const mode = m?.[1]?.toLowerCase();
+    return mode && AGENT_MODES.has(mode) ? mode : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export function parseAxetAgentList(raw: string, read?: (p: string) => string): AxetAgentEntry[] {
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
@@ -225,11 +244,16 @@ export function parseAxetAgentList(raw: string): AxetAgentEntry[] {
     const name = text(record.name, 60);
     if (!AGENT_NAME.test(name) || seen.has(name)) continue;
     seen.add(name);
+    // kucukler-3: liste `mode` vermiyor (1.5.1); kullanıcı/proje ajanının
+    // tanım dosyasından okunuyor (yalnız OKUMA).
+    const file = text(record.path, 1000);
+    const mode = file ? agentModeFromFile(file, read) : undefined;
     out.push({
       name,
       scope: text(record.scope, 40),
       permissions: text(record.permissions, 60),
-      description: text(record.description, 200)
+      description: text(record.description, 200),
+      ...(mode ? { mode } : {})
     });
   }
   return out;

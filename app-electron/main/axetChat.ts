@@ -39,6 +39,7 @@ import { connectorGuidance } from "./connectorHealth";
 import { shouldUseConnectors } from "./connectorPolicy";
 import { getAxetModelConfig } from "./axetModels";
 import { mt } from "./i18n";
+import { isSubagentOnlyError } from "../shared/agentErrors";
 import { ApprovalTracker, registerApprovalCandidate } from "./sapWrite/approvalEvents";
 import { PENDING_TTL_MS } from "./sapWrite/policy";
 
@@ -405,6 +406,7 @@ function configHasModel(): boolean {
 
 function userError(result: HeadlessTurnResult, retried: boolean, modelChosen = true): string {
   const raw = result.error ?? "";
+  if (isSubagentOnlyError(raw)) return mt("chat.agentSubagentOnly");
   const setup = axetSetupHint(raw, { modelChosen, configHasModel: configHasModel() });
   if (setup) return setup;
   if (isUpdateBlock(raw)) {
@@ -740,6 +742,8 @@ export async function sendChatMessage(
         text: joinText(text, result.text),
         error: userError(result, retried, model !== null),
         usedConnectors: useConnectors,
+        // Seçilen ajan ana ajan olamıyor: sohbet seçimi varsayılana döndürsün.
+        ...(isSubagentOnlyError(result.error) ? { agentRejected: true } : {}),
         // Zorunlu güncellemede "Devam et" aynı duvara çarpar: gösterilecek
         // şey güncelleme hatasının kendisi.
         ...(toolsRan && !isUpdateBlock(result.error) ? { canContinue: true } : {})
