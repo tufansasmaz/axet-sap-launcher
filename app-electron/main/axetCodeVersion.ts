@@ -84,8 +84,11 @@ export function axetCodeVersion(): string | null {
 // güncelleyicisi, program kullanımdayken onu 0 bayta indirip "başarılı"
 // diyebiliyor (2026-10-15 ve 2026-10-16'da iki kez görüldü). O durumda
 // sohbet sessizce cevapsız kalıyordu; artık ne olduğunu söylüyor.
-
-export const MIN_AXET_VERSION = "1.4.0";
+//
+// 1.4.1: axet-code portalı 1.5.1 ile birlikte en düşük sürümü 1.3.0'dan
+// 1.4.1'e çekti (`run -v` güncelleme satırı: `minimum=1.4.1`, ölçüm
+// 2026-11-12, .superpowers/axet151-fark.md). 1.4.0 portalın altında kalıyor.
+export const MIN_AXET_VERSION = "1.4.1";
 
 export type AxetBinaryStatus =
   | { kind: "ok"; version: string }

@@ -384,7 +384,7 @@ Bir sisteme bağlandıktan sonra asıl çalışma burada yapılır. Sol kenar
 listesi ve bağlanılan sistemler var.
 
 - **Her mesaj kısa ömürlü bir `axet-code run` süreciyle çalışır** (görünmez,
-  TUI/PTY yok). **axet-code 1.4.0 veya üstü** gereklidir; eski, eksik ya da
+  TUI/PTY yok). **axet-code 1.4.1 veya üstü** gereklidir (1.5.1 ile denendi); eski, eksik ya da
   bozuk sürüm açık hata gösterir.
 - **İlk mesaj ~1 saniye içinde başlar.** Yazmaya başlayınca süreç arka planda
   önceden hazırlanır; bağlayıcı gerektiren sistemlerde bağlayıcı yüklemesi ek

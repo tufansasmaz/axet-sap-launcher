@@ -10790,7 +10790,7 @@ Sohbet ekranı her mesajda kısa ömürlü bir `axet-code run -v -q --output-for
 süreci açıyor; oturum hafızası axet-code'da, sohbet → oturum eşlemesi `axetSessionBinding`.
 Görünmez TUI, ısıtma, ekran okuma, palet tuşlarıyla geçmiş sarma ve "Esc tuttu mu" kararı kaldırıldı.
 
-- Önkoşul axet-code 1.4.0+; eski sürümde sohbet açık bir hata veriyor.
+- Önkoşul axet-code 1.4.1+ (portalın en düşüğü, 1.5.1 ile ölçüldü 2026-11-12); eski sürümde sohbet açık bir hata veriyor.
 - Soru: ajan `secenekler` bloğuyla soruyor; `ask_user`'ı yine çağırırsa süreç durdurulup soru kartı gösteriliyor.
 - Hata: ajan araç çalıştırmadıysa bir kez otomatik yeniden; çalıştırdıysa "Devam et".
 - Model sohbete ait (`-m`); axet-code'un global ayarına yazılmıyor.

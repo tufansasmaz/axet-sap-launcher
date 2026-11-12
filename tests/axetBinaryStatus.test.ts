@@ -32,6 +32,14 @@ describe("statusFromProbe", () => {
     });
   });
 
+  it("1.4.0 eski: portal en düşüğü 1.4.1 (ölçüm 2026-11-12, minimum=1.4.1); 1.5.1 tamam", () => {
+    expect(statusFromProbe({ errorCode: null, errorMessage: "", stdout: "axet-code version 1.4.0" })).toEqual({
+      kind: "old",
+      version: "1.4.0"
+    });
+    expect(statusFromProbe({ errorCode: null, errorMessage: "", stdout: "axet-code version 1.5.1" }).kind).toBe("ok");
+  });
+
   it("sürümü stderr'e basan derleme de tanınıyor (bozuk sayılmıyor)", () => {
     expect(
       statusFromProbe({ errorCode: null, errorMessage: "", stdout: "", stderr: "axet-code version 1.4.2\n" })
