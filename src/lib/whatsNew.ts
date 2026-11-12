@@ -12,6 +12,27 @@ export interface WhatsNewEntry {
 
 export const WHATS_NEW_DATA: readonly WhatsNewEntry[] = [
   {
+    version: "1.9.4",
+    items: {
+      tr: [
+        "Aynı anda birden fazla SAP sistemine bağlı kalabilirsin (en çok 4); her sohbet ve ajan kendi sistemiyle çalışır.",
+        "ADT sunucusunun açılmaması, \"This app can't run on your PC\" penceresi ve sistemler arası geçiş sorunları düzeltildi; ajan SAP'ye erişemiyorsa nedeni yazıyor.",
+        "Sohbette takılma kartı (Durdur / Yeniden dene), \"Şimdi gönder\", istek sınırında (429) otomatik yeniden deneme.",
+        "Sohbette ajan seçici: hangi axet ajanıyla çalıştığın görünüyor ve değiştirilebiliyor.",
+        "Ajanlar'da dosya görüntüleyici ve \"Gezgin'de aç\"; not alanında şifreye benzeyen satırlar gizleniyor.",
+        "axet-code 1.5.1 uyumu; en düşük sürüm 1.4.1."
+      ],
+      en: [
+        "Stay connected to several SAP systems at once (up to 4); each chat and agent works with its own system.",
+        "Fixed the ADT server not starting, the \"This app can't run on your PC\" popup and switching between systems; if the agent can't reach SAP, the reason is shown.",
+        "Chat: stuck-turn card (Stop / Retry), \"Send now\", automatic retry on rate limits (429).",
+        "Agent picker in chat: see and change which axet agent you are working with.",
+        "File viewer and \"Open in Explorer\" in Agents; password-like lines in notes are hidden.",
+        "axet-code 1.5.1 support; minimum version 1.4.1."
+      ]
+    }
+  },
+  {
     version: "1.9.3",
     items: {
       tr: [
