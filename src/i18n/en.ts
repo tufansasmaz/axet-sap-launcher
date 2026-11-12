@@ -173,6 +173,10 @@ export const en: Record<TranslationKey, string> = {
   "systemPanel.commentUnsaved": "Unsaved changes",
   "systemPanel.commentChars": "{count} characters",
   "systemPanel.commentHint": "Ctrl+Enter to save",
+  "systemPanel.secretMasked": "{count} password-like value(s) in this note are masked",
+  "systemPanel.secretShow": "Show",
+  "systemPanel.secretHide": "Hide",
+  "systemPanel.secretSavedWarning": "Saved — but the note looks like it contains a password. Notes are stored as plain text; do not keep passwords here.",
 
   "sapLogon.opened": "SAP GUI opened",
   "sapLogon.missingHostOrPort": "This system has no host/port information",

@@ -179,6 +179,11 @@ export const tr = {
   "systemPanel.commentUnsaved": "Kaydedilmemiş değişiklik",
   "systemPanel.commentChars": "{count} karakter",
   "systemPanel.commentHint": "Kaydetmek için Ctrl+Enter",
+  // Notta şifreye benzeyen içerik (bkz. src/lib/noteSecrets.ts).
+  "systemPanel.secretMasked": "Notta şifreye benzeyen {count} değer maskelendi",
+  "systemPanel.secretShow": "Göster",
+  "systemPanel.secretHide": "Gizle",
+  "systemPanel.secretSavedWarning": "Kaydedildi — ama not şifre içeriyor gibi. Notlar düz metin saklanır; şifreyi burada tutma.",
 
   "sapLogon.opened": "SAP GUI açıldı",
   "sapLogon.missingHostOrPort": "Bu sistem için host/port bilgisi yok",

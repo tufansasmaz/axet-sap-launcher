@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Cable, Plus } from "lucide-react";
 import type { ConnectivityState, SapService, SystemTier } from "../../app-electron/shared/types";
 import SystemHeader from "./SystemHeader";
@@ -60,6 +60,27 @@ export default function SystemPanel({
 }: Props) {
   const t = useT();
   const note = useSystemComment(selection);
+  // Notun şifre maskesi için sistemin bilinen kullanıcı adı ("kullanıcı
+  // satırının altındaki satır" işareti, bkz. noteSecrets.ts). Şifre alınmıyor.
+  const [noteUser, setNoteUser] = useState("");
+  const noteUuid = selection?.service.uuid ?? null;
+  useEffect(() => {
+    setNoteUser("");
+    if (!noteUuid) return;
+    let cancelled = false;
+    try {
+      Promise.resolve(window.api.getCredentialDefaults?.(noteUuid))
+        .then((d) => {
+          if (!cancelled) setNoteUser(d?.username ?? "");
+        })
+        .catch(() => {});
+    } catch {
+      // kanal yoksa maskeleme yalnız anahtar sözcüklerle çalışır
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [noteUuid]);
 
   // Seçimde erişim kontrolü — ama 30 sn'lik bir pencereyle. App.tsx zaten
   // açılışta 5 işçilik bir tarama yapıyor; bu efekt onun üstüne biniyordu ve
@@ -138,7 +159,7 @@ export default function SystemPanel({
           <WriteHistory path={path} service={service} />
         </section>
         <div data-panel-card className={`${PANEL_CARD} flex-1`}>
-          <SystemNotes note={note} />
+          <SystemNotes key={service.uuid} note={note} username={noteUser} />
         </div>
       </div>
     </div>
