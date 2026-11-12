@@ -88,7 +88,7 @@ export interface HeadlessTurnResult {
 
 export interface HeadlessDeps {
   spawn(cmd: string, args: string[], opts: { cwd: string; env: NodeJS.ProcessEnv }): ChildLike;
-  env(useConnectors: boolean): NodeJS.ProcessEnv;
+  env(useConnectors: boolean, cwd?: string): NodeJS.ProcessEnv;
   dbPath(cwd: string): string | null;
   readMessages(dbPath: string, sessionId: string, sinceSec: number): AxetDbMessage[];
   readProgress(dbPath: string, sessionId: string): AxetChatProgress;
@@ -237,7 +237,7 @@ export function spawnAxetSafely(cmd: string, args: string[], opts: { cwd: string
 export function defaultHeadlessDeps(): HeadlessDeps {
   return {
     spawn: spawnAxetSafely,
-    env: (useConnectors) => axetSpawnEnv(useConnectors),
+    env: (useConnectors, cwd) => axetSpawnEnv(useConnectors, cwd),
     dbPath: (cwd) => resolveSessionDb(cwd),
     readMessages: (dbPath, sessionId, sinceSec) => readMessagesSince(dbPath, sessionId, sinceSec),
     readProgress: (dbPath, sessionId) => ({
@@ -331,7 +331,7 @@ export function startHeadlessTurn(args: HeadlessTurnArgs, deps: HeadlessDeps = d
   let finished = false;
 
   const child =
-    args.prewarmed ?? deps.spawn("axet-code", buildRunArgs(args), { cwd: args.cwd, env: deps.env(args.useConnectors) });
+    args.prewarmed ?? deps.spawn("axet-code", buildRunArgs(args), { cwd: args.cwd, env: deps.env(args.useConnectors, args.cwd) });
 
   const signal = () => {
     lastSignalAt = deps.now();

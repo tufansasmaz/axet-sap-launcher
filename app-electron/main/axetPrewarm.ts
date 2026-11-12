@@ -33,7 +33,7 @@ export type PrewarmOutcome = "acildi" | "kullanildi" | "uyusmadi" | "bosta-kapan
 
 export interface PrewarmDeps {
   spawn(cmd: string, args: string[], opts: { cwd: string; env: NodeJS.ProcessEnv }): ChildLike;
-  env(useConnectors: boolean): NodeJS.ProcessEnv;
+  env(useConnectors: boolean, cwd?: string): NodeJS.ProcessEnv;
   killTree(child: ChildLike): void;
   setTimer(fn: () => void, ms: number): unknown;
   clearTimer(handle: unknown): void;
@@ -179,7 +179,7 @@ export function createPrewarmPool(deps: PrewarmDeps): PrewarmPool {
       const args = buildRunArgs({ cwd: key.cwd, model: null, resumeId: key.resumeId });
       // buildRunArgs `-m`'yi en sona koyuyor; anahtar zaten "provider/model".
       if (key.model) args.push("-m", key.model);
-      real = deps.spawn("axet-code", args, { cwd: key.cwd, env: deps.env(key.useConnectors) });
+      real = deps.spawn("axet-code", args, { cwd: key.cwd, env: deps.env(key.useConnectors, key.cwd) });
     } catch {
       return; // açılamadı: tur bugünkü gibi kendi sürecini açar
     }

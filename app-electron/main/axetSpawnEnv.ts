@@ -1,4 +1,4 @@
-import { getAdtHttpToken } from "./adtHttpToken";
+import { applyAdtEnv } from "./sapSystems";
 import { withNttPythonSite } from "./pythonSiteEnv";
 
 // ---------------------------------------------------------------------------
@@ -50,12 +50,14 @@ const FAST_FAIL_MCP_BASE_URL = "http://127.0.0.1:9";
  *   devre dışı bırakılır ve çağrı ~2.5 kat hızlanır. `true` ise `process.env`
  *   (+ ADT token'ı) döner, yani axet-code her zamanki gibi bağlayıcıları kurar.
  */
-export function axetSpawnEnv(useConnectors: boolean): NodeJS.ProcessEnv {
-  // Ajan 8787'deki ADT sunucusuna `os.environ['ABAP_HTTP_TOKEN']` ile
-  // konuşuyor; token'ı ortama koyan çağrı bu (bkz. adtHttpToken.ts).
+export function axetSpawnEnv(useConnectors: boolean, cwd = ""): NodeJS.ProcessEnv {
+  // Ajan KENDİ sisteminin ADT sunucusuna `ABAP_HTTP_URL` +
+  // `os.environ['ABAP_HTTP_TOKEN']` ile konuşuyor; sistem `cwd`'den (değilse
+  // odaktaki), bkz. sapSystems.ts. Jeton global ortamda DEĞİL: başka sistemin
+  // klasöründe açılan süreç başka sistemin jetonunu görmüyor.
   // PYTHONPATH: ajanın çalıştırdığı skill script'lerinde `verify=False`
   // yerine pin/zincir (bkz. pythonSiteEnv.ts).
-  const env = withNttPythonSite({ ...process.env, ABAP_HTTP_TOKEN: getAdtHttpToken() });
+  const env = applyAdtEnv(withNttPythonSite({ ...process.env }), cwd, { touch: true });
   if (useConnectors) return env;
   return { ...env, AXET_MCP_BASE_URL: FAST_FAIL_MCP_BASE_URL };
 }

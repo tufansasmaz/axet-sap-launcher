@@ -67,7 +67,7 @@ export function runSapGuiAgentStep(
           // ve sonucu bana mail at" bu ekranın en doğal isteklerinden ve
           // eskiden imkânsızdı. Araç çağrıları axet-code'un kendi döngüsünde
           // olup bittiği için stdout'a yine sadece aksiyon JSON'ı düşüyor.
-          child = spawn("axet-code", args, { cwd: dir, windowsHide: true, stdio: ["pipe", "pipe", "pipe"], env: axetSpawnEnv(useConnectors) });
+          child = spawn("axet-code", args, { cwd: dir, windowsHide: true, stdio: ["pipe", "pipe", "pipe"], env: axetSpawnEnv(useConnectors, dir) });
         } catch (err) {
           reject(err as Error);
           return;

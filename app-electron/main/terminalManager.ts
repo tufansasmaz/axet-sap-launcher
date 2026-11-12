@@ -1,7 +1,7 @@
 import type { BrowserWindow } from "electron";
 import * as pty from "@lydell/node-pty";
 import { mkdirSync, statSync } from "node:fs";
-import { getAdtHttpToken } from "./adtHttpToken";
+import { applyAdtEnv } from "./sapSystems";
 import { withNttPythonSite } from "./pythonSiteEnv";
 import { appLog } from "./appLog";
 
@@ -170,10 +170,11 @@ export function createTerminal(
     cols: cols > 0 ? cols : 80,
     rows: rows > 0 ? rows : 24,
     cwd: resolvedCwd,
-    // Terminalde çalışan ajan 8787'ye token'la konuşuyor (bkz. adtHttpToken.ts);
+    // Terminalde çalışan ajan KENDİ sisteminin ADT sunucusuna (klasörünün
+    // sistemi; değilse odaktaki) adres + jetonla konuşuyor (bkz. sapSystems.ts);
     // PYTHONPATH, oradan çalışan Python'a TLS kuralını veriyor (pythonSiteEnv.ts).
     // Ekip köprüsü (Tur 4, teamBridge.ts): bölme başına NTT_TEAM_* ve PATH başında ntt-team.
-    env: withTeamEnv(withNttPythonSite({ ...process.env, ABAP_HTTP_TOKEN: getAdtHttpToken() }) as Record<string, string>, options)
+    env: withTeamEnv(applyAdtEnv(withNttPythonSite({ ...process.env }) as Record<string, string>, resolvedCwd, { touch: true }), options)
   });
 
   const session: TerminalSession = {

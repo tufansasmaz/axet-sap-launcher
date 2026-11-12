@@ -18,9 +18,8 @@ import { randomBytes } from "node:crypto";
 //
 // Karar: token'ı launcher üretiyor ve YALNIZCA bellekte tutuyor. Proje klasörü
 // OneDrive'da senkronlanıyor; token'ı `sap-context.md`'ye ya da bir dosyaya
-// yazmak onu buluta taşırdı. Bunun yerine `process.env`'e konuyor ve oradan
-// kalıtımla Python sunucusuna, `axet-code`'a ve gömülü terminallere geçiyor —
-// ajanın komutları `os.environ['ABAP_HTTP_TOKEN']` ile okuyor.
+// yazmak onu buluta taşırdı. Ajanın komutları `os.environ['ABAP_HTTP_TOKEN']`
+// ile okuyor; değeri süreç açılırken ortamına biz koyuyoruz.
 //
 // Salt-okur sarmalayıcı (`adt_readonly_server.py`) bu değişkeni hiç okumuyor;
 // ona giden başlık zararsız, davranışı 1.6.7'dekiyle aynı.
@@ -30,20 +29,24 @@ import { randomBytes } from "node:crypto";
 // eklediği yukarıda yazıyor.
 // ---------------------------------------------------------------------------
 
-// Asıl kaynak bu değişken; `process.env` yalnızca kalıtım kanalı. Ortamdaki
-// değer bir şekilde silinirse yeni token üretmek, çalışan sunucuyla eşleşmeyi
-// sessizce bozardı.
+// Çoklu sistem (2026-11-12): her sistemin jetonu kendi kaydında
+// (sapSystems.ts) ve süreç açılırken yalnız o sürecin ortamına konuyor.
+// Bu jeton yalnızca sistem kaydı dışında başlatılan sunucular (testler, eski
+// çağıranlar) için varsayılan; `process.env`'e YAZILMIYOR — global ortamdaki
+// bir jeton her alt sürece, her sistemin klasöründe açılana da, geçerdi.
 let token: string | null = null;
 
-/**
- * Bu süreç boyunca geçerli token. İlk çağrıda üretilir ve `process.env`'e
- * yazılır ki sonra başlatılan her alt süreç onu kalıtımla alsın. Kullanıcı
- * uygulamayı `ABAP_HTTP_TOKEN` ile başlattıysa o değer kullanılır.
- */
+/** Süreç boyunca sabit varsayılan jeton; yalnız bellekte. */
 export function getAdtHttpToken(): string {
-  if (!token) {
-    token = (process.env.ABAP_HTTP_TOKEN ?? "").trim() || randomBytes(32).toString("base64url");
-  }
-  process.env.ABAP_HTTP_TOKEN = token;
+  if (!token) token = randomBytes(32).toString("base64url");
   return token;
+}
+
+/**
+ * Uygulama açılışında: NTT Studio'yu başlatan ortamdan miras kalan ADT
+ * değişkenleri (ör. NTT Studio'nun kendi terminalinden açılmış bir geliştirici
+ * kopyası) silinir; yoksa sistemi olmayan her alt süreç onları taşırdı.
+ */
+export function scrubInheritedAdtEnv(env: NodeJS.ProcessEnv = process.env): void {
+  for (const k of ["ABAP_HTTP_TOKEN", "ABAP_HTTP_URL", "ABAP_HTTP_PORT"]) delete env[k];
 }

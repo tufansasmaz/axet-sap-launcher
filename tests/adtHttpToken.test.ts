@@ -113,7 +113,7 @@ function projectDir(name: string): string {
 function health(port: number): Promise<{ status: number; body: Record<string, unknown> }> {
   return new Promise((resolve, reject) => {
     httpRequest(
-      { host: "127.0.0.1", port, path: "/health", headers: { Authorization: `Bearer ${process.env.ABAP_HTTP_TOKEN}` } },
+      { host: "127.0.0.1", port, path: "/health", headers: { Authorization: `Bearer ${getAdtHttpToken()}` } },
       (res) => {
         let text = "";
         res.setEncoding("utf-8");
@@ -144,26 +144,20 @@ afterEach(() => {
 });
 
 describe("token", () => {
-  it("süreç boyunca TEK token: iki çağrı aynı değeri veriyor ve ortama yazılıyor", () => {
+  it("süreç boyunca TEK varsayılan token; ortama YAZILMIYOR (çoklu sistem: jeton sistem kaydında)", () => {
+    delete process.env.ABAP_HTTP_TOKEN;
     const a = getAdtHttpToken();
     expect(a).toBe(getAdtHttpToken());
-    expect(process.env.ABAP_HTTP_TOKEN).toBe(a);
+    expect(process.env.ABAP_HTTP_TOKEN).toBeUndefined();
     // 32 rastgele bayt, base64url → 43 karakter.
     expect(a.length).toBeGreaterThanOrEqual(43);
   });
 
-  it("ajan token'ı görüyor: bağlayıcılar açık da kapalı da", () => {
-    const token = getAdtHttpToken();
-    expect(axetSpawnEnv(true).ABAP_HTTP_TOKEN).toBe(token);
-    expect(axetSpawnEnv(false).ABAP_HTTP_TOKEN).toBe(token);
-  });
-
-  it("ortamdaki değer silinse bile token DEĞİŞMİYOR (çalışan sunucuyla eşleşme bozulmasın)", () => {
-    const token = getAdtHttpToken();
+  it("sistemi olmayan ajan jeton taşımıyor; miras kalan değer de silinmiş", () => {
+    process.env.ABAP_HTTP_TOKEN = "miras";
+    expect(axetSpawnEnv(true).ABAP_HTTP_TOKEN).toBeUndefined();
+    expect(axetSpawnEnv(false).ABAP_HTTP_TOKEN).toBeUndefined();
     delete process.env.ABAP_HTTP_TOKEN;
-    // axetSpawnEnv token'ı ortama bırakmıyor, kendisi istiyor.
-    expect(axetSpawnEnv(false).ABAP_HTTP_TOKEN).toBe(token);
-    expect(process.env.ABAP_HTTP_TOKEN).toBe(token);
   });
 });
 
@@ -183,7 +177,7 @@ describe("yazma sunucusu ayağa kalkıyor", () => {
     // Ajanın yapacağı çağrı: aynı ortamdaki token'la.
     const status = await new Promise<number>((resolve, reject) => {
       httpRequest(
-        { host: "127.0.0.1", port, path: "/health", headers: { Authorization: `Bearer ${process.env.ABAP_HTTP_TOKEN}` } },
+        { host: "127.0.0.1", port, path: "/health", headers: { Authorization: `Bearer ${getAdtHttpToken()}` } },
         (res) => {
           res.resume();
           resolve(res.statusCode ?? 0);

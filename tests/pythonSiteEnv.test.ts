@@ -62,7 +62,7 @@ describe("ajan ortamı", () => {
   it("terminal ve 8787 sunucusu yardımcıyı kullanıyor", () => {
     const read = (f: string) => readFileSync(path.join(repoRoot, "app-electron", "main", f), "utf8");
     // Tur 4: ekip köprüsünün değişkenleri dışta (withTeamEnv), Python yardımcısı içte.
-    expect(read("terminalManager.ts")).toMatch(/env: withTeamEnv\(withNttPythonSite\(/);
+    expect(read("terminalManager.ts")).toMatch(/env: withTeamEnv\(applyAdtEnv\(withNttPythonSite\(/);
     expect(read("adtReadonlyServerManager.ts")).toMatch(/const env: NodeJS\.ProcessEnv = withNttPythonSite\(/);
   });
 

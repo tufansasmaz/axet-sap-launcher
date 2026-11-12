@@ -52,7 +52,7 @@ export function runFlowsAgentStep(prompt: string, model: string | null, useConne
           // Kabuksuz: `shell: true` argümanları (model adı dahil) cmd.exe'nin
           // komut satırına yapıştırıyordu, `&` gibi bir karakter orada komut
           // olurdu. Kabuksuz desen sapGuiScriptAgent.ts'te canlı doğrulandı.
-          child = spawn("axet-code", args, { cwd: dir, windowsHide: true, stdio: ["pipe", "pipe", "pipe"], env: axetSpawnEnv(useConnectors) });
+          child = spawn("axet-code", args, { cwd: dir, windowsHide: true, stdio: ["pipe", "pipe", "pipe"], env: axetSpawnEnv(useConnectors, dir) });
         } catch (err) {
           reject(err as Error);
           return;
