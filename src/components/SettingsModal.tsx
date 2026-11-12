@@ -37,6 +37,7 @@ import {
   normalizeStallMinutes
 } from "../../app-electron/shared/agentErrors";
 import { FLOW_HISTORY_DAYS_OPTIONS, normalizeFlowHistoryDays } from "../../app-electron/shared/flowHistory";
+import { SYSTEM_SLEEP_OPTIONS, normalizeSystemSleepMinutes } from "../../app-electron/shared/systemSleep";
 
 // Tur 9: ajan hatası ayarlarının seçenekleri.
 const RETRY_MAX_OPTIONS = Array.from({ length: RETRY_MAX_LIMIT }, (_, i) => i + 1);
@@ -500,6 +501,14 @@ export default function SettingsModal({
                   { key: "terminal", label: t("settingsModal.sapConnectOpenTerminal") },
                   { key: "ask", label: t("settingsModal.sapConnectOpenAsk") }
                 ]}
+              />
+            </Field>
+            {/* kucukler-3: boştaki sistemin ADT sunucusu + RFC köprüsü (main/systemSleep.ts). */}
+            <Field label={t("settingsModal.systemIdleSleepLabel")} hint={t("settingsModal.systemIdleSleepHint")}>
+              <SegmentedControl
+                value={String(normalizeSystemSleepMinutes(form.systemIdleSleepMinutes))}
+                onChange={(value) => update({ systemIdleSleepMinutes: normalizeSystemSleepMinutes(Number(value)) })}
+                options={SYSTEM_SLEEP_OPTIONS.map((n) => ({ key: String(n), label: n === 0 ? t("settingsModal.systemIdleSleepOff") : t("settingsModal.minutesShort", { n }) }))}
               />
             </Field>
             {/* "Sohbet görünümü"nden taşındı: ayar sohbet, ajan ve pano

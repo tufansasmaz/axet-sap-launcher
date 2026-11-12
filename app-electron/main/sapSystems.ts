@@ -42,10 +42,16 @@ export interface SystemRecord extends SystemIdentity {
   adtPort: number | null;
   rfcPort: number | null;
   lastUsedAt: number;
+  /**
+   * Boşta kaldığı için ADT sunucusu + RFC köprüsü kapatıldı (systemSleep.ts).
+   * Kayıt, port ve bağlam duruyor; ilk istekte/odakta yeni jetonla açılıyor.
+   */
+  sleeping?: boolean;
 }
 
 const systems = new Map<string, SystemRecord>();
 let focusKey: string | null = null;
+let wakeHandler: ((rec: SystemRecord) => void) | null = null;
 
 export function dirKey(p: string): string {
   return p.replace(/[\\/]+/g, "\\").replace(/\\+$/, "").toLowerCase();
@@ -65,7 +71,8 @@ export function upsertSystem(projectDir: string, id: SystemIdentity, now = Date.
     token: prev?.token ?? newToken(),
     adtPort: prev?.adtPort ?? null,
     rfcPort: prev?.rfcPort ?? null,
-    lastUsedAt: now
+    lastUsedAt: now,
+    sleeping: false
   };
   systems.set(key, rec);
   focusKey = key;
@@ -97,9 +104,41 @@ export function touchSystem(projectDir: string, now = Date.now()): void {
 
 export function focusSystem(projectDir: string): boolean {
   const key = dirKey(projectDir);
-  if (!systems.has(key)) return false;
+  const rec = systems.get(key);
+  if (!rec) return false;
   focusKey = key;
   touchSystem(projectDir);
+  wakeIfSleeping(rec);
+  return true;
+}
+
+/** Sunucuları kapatılan sistemi "uyuyor" işaretler (kapatmak çağıranın işi). */
+export function markSystemSleeping(projectDir: string): void {
+  const rec = systems.get(dirKey(projectDir));
+  if (rec) rec.sleeping = true;
+}
+
+/** Uyuyan sistem uyanınca sunucuları yeniden açacak olan (index.ts kuruyor). */
+export function setSystemWakeHandler(fn: ((rec: SystemRecord) => void) | null): void {
+  wakeHandler = fn;
+}
+
+/**
+ * Uyuyan sistemi uyandırır: aynı port, YENİ jeton (eskisi kapanan sunucuyla
+ * gitti; bağlı bölmesi olan sistem zaten uyutulmuyor). Kayıt eşzamanlı
+ * güncelleniyor ki o an açılan süreç yeni jetonu alsın; sunucular arka planda
+ * açılıyor (ajanın açılışı sunucunun açılışından uzun sürüyor).
+ */
+export function wakeIfSleeping(rec: SystemRecord): boolean {
+  if (!rec.sleeping) return false;
+  rec.sleeping = false;
+  rec.token = newToken();
+  rec.lastUsedAt = Date.now();
+  try {
+    wakeHandler?.(rec);
+  } catch {
+    // uyandırıcının hatası ortam vermeyi bozmasın
+  }
   return true;
 }
 
@@ -153,6 +192,7 @@ export interface AdtEnv {
 export function adtEnvForCwd(cwd: string, opts: { touch?: boolean } = {}): AdtEnv | null {
   const rec = systemForCwd(cwd) ?? focusedSystem();
   if (!rec || !rec.adtPort) return null;
+  wakeIfSleeping(rec);
   if (opts.touch) rec.lastUsedAt = Date.now();
   return { ABAP_HTTP_TOKEN: rec.token, ABAP_HTTP_URL: `http://127.0.0.1:${rec.adtPort}`, ABAP_HTTP_PORT: String(rec.adtPort) };
 }

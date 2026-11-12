@@ -155,6 +155,8 @@ function resumePrompt(message: string, useConnectors: boolean, cwd: string): str
 
 interface ChatRun {
   chatId: string;
+  /** Turun klasörü: boştaki sistem uyutulurken "bağlı tur" sayılır (systemSleep.ts). */
+  cwd: string;
   turn: HeadlessTurn | null;
   cancelled: boolean;
   pendingAsk: AskUserRequest | null;
@@ -254,6 +256,11 @@ export function dropAllPrewarmed(): void {
 export function stopPrewarming(): void {
   prewarmStopped = true;
   dropAllPrewarmed();
+}
+
+/** Çalışan sohbet turlarının klasörleri. */
+export function activeChatCwds(): string[] {
+  return [...runs.values()].map((r) => r.cwd);
 }
 
 export function chatBusy(chatId: string): boolean {
@@ -441,7 +448,7 @@ export async function sendChatMessage(
 
   // Sürüm denetimi öncesinde kaydediyoruz: await sırasında gelen Durdur kayboluyor.
   // try/finally burayı kapsıyor; erken dönüşler runs.delete'i atlamaz.
-  const run: ChatRun = { chatId, turn: null, cancelled: false, pendingAsk: null, answerAsk: null, turns: 0, wakeDelay: null, stopApprovalWait: null, approvalReleased: false };
+  const run: ChatRun = { chatId, cwd: resolvedCwd, turn: null, cancelled: false, pendingAsk: null, answerAsk: null, turns: 0, wakeDelay: null, stopApprovalWait: null, approvalReleased: false };
   // Bu turda sorulan SAP yazma onayları (bkz. sapWrite/approvalEvents.ts).
   // Sahibi süreç zinciriyle bu tur olan istekler sayılır; aynı klasördeki bir
   // Ajanlar bölmesinin onayı bu turu uyandırmaz (bkz. resolveOwnership).

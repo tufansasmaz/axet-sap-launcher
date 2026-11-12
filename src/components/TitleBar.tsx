@@ -77,9 +77,11 @@ export default function TitleBar({ context, onShowSystem, onClearSap, onFocusSap
         >
           {/* SAP doğrulandı ama ajanın 8787 sunucusu yoksa yeşil değil: ajan SAP'ye erişemiyor. */}
           <span
-            className={`h-1.5 w-1.5 shrink-0 rounded-full ${sap.verified && sap.agentReady !== false ? "bg-[var(--status-success-text)]" : "bg-[var(--status-warning-text)]"}`}
+            className={`h-1.5 w-1.5 shrink-0 rounded-full ${sap.sleeping ? "bg-slate-500" : sap.verified && sap.agentReady !== false ? "bg-[var(--status-success-text)]" : "bg-[var(--status-warning-text)]"}`}
             title={
-              !sap.verified
+              sap.sleeping
+                ? t("activeContext.sleepingTitle")
+                : !sap.verified
                 ? t("activeContext.unverified")
                 : sap.agentReady === false
                   ? t("activeContext.noAgent", { reason: sap.agentIssue || "-" })
@@ -99,6 +101,12 @@ export default function TitleBar({ context, onShowSystem, onClearSap, onFocusSap
             <span className="shrink-0 text-slate-400">
               {sap.client} / {sap.username}
             </span>
+            {/* Boştaki sistem (main/systemSleep.ts): bağlı kalıyor, sunucusu kapalı; tıklayınca uyanır. */}
+            {sap.sleeping && (
+              <span data-testid="system-sleeping" title={t("activeContext.sleepingTitle")} className="shrink-0 text-slate-500">
+                {t("activeContext.sleeping")}
+              </span>
+            )}
           </button>
           {sap.tier && <TierBadge tier={sap.tier} />}
           {/* SAP GUI oturumu ayrı bir parça: bağlı sistem ile açık GUI ekranı

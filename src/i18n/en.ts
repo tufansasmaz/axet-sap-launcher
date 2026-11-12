@@ -61,6 +61,8 @@ export const en: Record<TranslationKey, string> = {
   "titleBar.close": "Close",
 
   "activeContext.verified": "Connection verified",
+  "activeContext.sleeping": "asleep",
+  "activeContext.sleepingTitle": "ADT server stopped because the system was idle; it starts again on the next request or when clicked",
   "activeContext.noAgent": "Connected, but the agent cannot reach SAP: {reason}",
   "activeContext.unverified": "Connection could not be verified — ADT calls may fail",
   "activeContext.showSystem": "Show system · {path}",
@@ -1244,6 +1246,9 @@ export const en: Record<TranslationKey, string> = {
   "settingsModal.sapConnectOpenTerminal": "Open in agent terminal",
   "settingsModal.sapConnectOpenAsk": "Ask every time",
   "settingsModal.sapConnectOpenHint": "The arrow next to the Connect button picks a different place just this once.",
+  "settingsModal.systemIdleSleepLabel": "Stop the server of an idle system",
+  "settingsModal.systemIdleSleepHint": "A connected system that receives no ADT request for this long has its ADT server and RFC bridge stopped; it stays connected and starts again on the next request or when you click its chip. A system with an open agent pane or a pending approval is never stopped.",
+  "settingsModal.systemIdleSleepOff": "Off",
   "settingsModal.agentMemoryDigestLabel": "Team memory summary when an agent starts",
   "settingsModal.agentMemoryDigestHint": "An agent with memory gets a short summary of the team's key notes on its first line. Off: only the memory file path.",
   "settingsModal.memoryAutoCaptureLabel": "Auto-capture notes from conversations",

@@ -21,6 +21,8 @@ interface TerminalSession {
   bufferLen: number;
   ready: boolean;
   readyTimer: NodeJS.Timeout | null;
+  /** Bölmenin klasörü: açık bölmesi olan sistem uyutulmaz (systemSleep.ts). */
+  cwd: string;
 }
 
 const sessions = new Map<string, TerminalSession>();
@@ -184,7 +186,8 @@ export function createTerminal(
     buffer: [],
     bufferLen: 0,
     ready: false,
-    readyTimer: null
+    readyTimer: null,
+    cwd: resolvedCwd
   };
   sessions.set(id, session);
 
@@ -221,6 +224,11 @@ export function createTerminal(
 }
 
 /** Bölmenin kabuk sürecinin kimliği (SAP yazma onayının sahibini eşlemek için; bkz. sapWrite/approvalEvents.ts). */
+/** Açık bölmelerin klasörleri. */
+export function terminalCwds(): string[] {
+  return [...sessions.values()].map((s) => s.cwd);
+}
+
 export function getTerminalPid(id: string): number | null {
   const pid = sessions.get(id)?.proc.pid;
   return typeof pid === "number" && pid > 0 ? pid : null;

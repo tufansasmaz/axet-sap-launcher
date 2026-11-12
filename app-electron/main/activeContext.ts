@@ -95,6 +95,19 @@ export function focusActiveSap(uuid: string): boolean {
   return true;
 }
 
+/** Uyuyan/uyanan sistemi bağlamda işaretler; sistem listeden düşmez (systemSleep.ts). */
+export function setActiveSapSleeping(projectDir: string, sleeping: boolean): void {
+  const list = systemsOf(current);
+  const i = list.findIndex((s) => sameDirKey(s.projectDir, projectDir));
+  if (i < 0 || Boolean(list[i].sleeping) === sleeping) return;
+  const { sleeping: _old, ...rest } = list[i];
+  const next: ActiveSapContext = sleeping ? { ...rest, sleeping: true } : rest;
+  const systems = list.map((s, j) => (j === i ? next : s));
+  const sap = current.sap && sameDirKey(current.sap.projectDir, projectDir) ? next : current.sap;
+  current = { ...current, sap, systems };
+  publish();
+}
+
 export function findActiveSap(uuid: string): ActiveSapContext | null {
   return systemsOf(current).find((s) => s.uuid === uuid) ?? null;
 }

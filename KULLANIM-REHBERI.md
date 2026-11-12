@@ -318,6 +318,14 @@ köprüsü (ilk 8788) ve DEV'de kendi onay oturumu vardır.
   bağlantısı kesilir ve bağlantı mesajında adıyla söylenir.
 - Bağlantıdan **önce** açılmış bir terminal o sistemin anahtarını görmez;
   bölmeyi yeniden aç.
+- **Boştaki sistem uyur**: bağlı bir sistem Ayarlar → Genel → "Boştaki
+  sistemin sunucusunu kapat" süresi boyunca (varsayılan 30 dk; Kapalı
+  seçilebilir) hiç ADT isteği almazsa ADT sunucusu ve RFC köprüsü kapanır.
+  Sistem bağlı listesinde kalır, çipinde **uyuyor** yazar. Çipe tıklayınca ya
+  da o sistemin klasöründe yeni sohbet turu/bölme açılınca aynı portta, yeni
+  bir anahtarla yeniden açılır. O sisteme bağlı **açık bir ajan bölmesi**,
+  çalışan bir sohbet turu ya da **bekleyen bir onay** varsa sistem asla
+  uyutulmaz (bölmenin anahtarı geçersiz kalırdı).
 
 ### Bağlantıyı kesmek ve başka sisteme geçmek
 
@@ -469,6 +477,8 @@ bilmen gerekmez); eşleşmeyen bölümler listeden çekilir.
     oluşturulacağı kök dizin (varsayılan: Belgelerim\aXet SAP Projects).
   - **SAP sistemine bağlanınca**: Sohbette aç (varsayılan) / Ajan
     terminalinde aç / Her seferinde sor. Bkz. "Sisteme Bağlanma".
+  - **Boştaki sistemin sunucusunu kapat**: Kapalı / 15 / 30 (varsayılan) /
+    60 / 120 dk. Bkz. "Aynı anda birden fazla sistem".
   - **Masaüstü bildirimleri**: Sohbet turu bitince, ajan seni beklerken ya
     da panoda görev değişince — yalnız pencere odak dışındayken.
 - **Görünüm**: Vurgu rengi, tema, sohbet yazı boyutu ve satır sıklığı (eski

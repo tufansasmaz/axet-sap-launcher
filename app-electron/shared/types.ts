@@ -540,6 +540,12 @@ export interface AppConfig {
   agentRetryMax: number;
   agentConcurrency: number;
   leadStallMinutes: number;
+  /**
+   * kucukler-3: bağlı sistem bu kadar dakika ADT isteği almazsa (ve bağlı
+   * bölmesi/bekleyen onayı yoksa) ADT sunucusu + RFC köprüsü kapanır, ilk
+   * istekte yeniden açılır. 0 = kapalı, varsayılan 30.
+   */
+  systemIdleSleepMinutes: number;
   /** 2026-10-21: Akış geçmişinin diskte tutulduğu gün (7/14/30, varsayılan 14). */
   flowHistoryDays: number;
 }
@@ -663,6 +669,8 @@ export interface ActiveSapContext {
    * 8787). Jeton BURADA YOK — renderer'a ve ajanın istemine gitmiyor.
    */
   adtPort?: number;
+  /** Boşta kaldığı için ADT sunucusu kapatıldı; ilk istekte/odakta yeniden açılır. */
+  sleeping?: boolean;
 }
 
 /** SAP GUI Scripting ekranının o an baktığı canlı oturum. Tek yazarı o ekran. */

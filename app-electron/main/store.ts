@@ -23,6 +23,7 @@ import { MAIN_EN } from "./i18n/en";
 import { normalizeActiveWorkspaceId, normalizeTerminalWorkspaces } from "../shared/terminalLayout";
 import { LEAD_MAX_DEFAULT, normalizeLeadMax } from "../shared/leadCommands";
 import { normalizeAutoModel, normalizeAutoTool } from "../shared/axetSetupPrefs";
+import { SYSTEM_SLEEP_DEFAULT, normalizeSystemSleepMinutes } from "../shared/systemSleep";
 import { FLOW_HISTORY_DAYS_DEFAULT, normalizeFlowHistoryDays } from "../shared/flowHistory";
 import { CONCURRENCY_DEFAULT, RETRY_MAX_DEFAULT, STALL_MINUTES_DEFAULT, normalizeConcurrency, normalizeRetryMax, normalizeStallMinutes } from "../shared/agentErrors";
 
@@ -151,6 +152,7 @@ function defaultConfig(): AppConfig {
     agentRetryMax: RETRY_MAX_DEFAULT,
     agentConcurrency: CONCURRENCY_DEFAULT,
     leadStallMinutes: STALL_MINUTES_DEFAULT,
+    systemIdleSleepMinutes: SYSTEM_SLEEP_DEFAULT,
     flowHistoryDays: FLOW_HISTORY_DAYS_DEFAULT
   };
 }
@@ -271,6 +273,7 @@ export function loadConfig(): AppConfig {
       agentRetryMax: normalizeRetryMax(parsed.agentRetryMax),
       agentConcurrency: normalizeConcurrency(parsed.agentConcurrency),
       leadStallMinutes: normalizeStallMinutes(parsed.leadStallMinutes),
+      systemIdleSleepMinutes: normalizeSystemSleepMinutes(parsed.systemIdleSleepMinutes),
       flowHistoryDays: normalizeFlowHistoryDays(parsed.flowHistoryDays)
     };
     // `...parsed` eski alanları da taşıyor; bir kere okunup göç ettirildikten

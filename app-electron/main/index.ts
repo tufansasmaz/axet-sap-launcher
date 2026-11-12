@@ -33,7 +33,7 @@ import { mt, refreshMainLanguage } from "./i18n";
 import { decryptSecret } from "./secureStorage";
 import { loadManualSystems, addManualSystem, removeManualSystem, updateManualSystem, exportManualSystemsToFile, importManualSystemsFromFile } from "./manualSystems";
 import { mergeManualSystems } from "./manualMerge";
-import { createTerminal, writeTerminal, resizeTerminal, disposeTerminal, disposeAllTerminals, getTerminalBuffer, getTerminalPid, setTerminalTap } from "./terminalManager";
+import { createTerminal, writeTerminal, resizeTerminal, disposeTerminal, disposeAllTerminals, getTerminalBuffer, getTerminalPid, setTerminalTap, terminalCwds } from "./terminalManager";
 import { createAgentMonitor, readAgentPatch, readAgentRegistration, type AgentErrorNotice } from "./agentMonitor";
 import { createShellAgentWatch } from "./shellAgentWatch";
 import { launcherName } from "../shared/agentEngines";
@@ -75,8 +75,10 @@ import { createMemoryService } from "./memoryService";
 import { browserSession, liveBrowserGuest } from "./browserLive";
 import type { ChangesFailure } from "../shared/changesTypes";
 import { stopAllRfcBridges, stopRfcBridge } from "./rfcBridgeManager";
-import { stopAllReadonlyServers, stopReadonlyServer } from "./adtReadonlyServerManager";
-import { closeWriteSession, stopApprovalServer } from "./sapWrite/server";
+import { setAdtActivityListener, stopAllReadonlyServers, stopReadonlyServer } from "./adtReadonlyServerManager";
+import { closeWriteSession, hasPendingApproval, stopApprovalServer } from "./sapWrite/server";
+import { anyCwdUnder, getSystemRestarter, setSystemRestarter, sleepIdleSystems } from "./systemSleep";
+import { normalizeSystemSleepMinutes } from "../shared/systemSleep";
 import { disconnectActiveSap } from "./sapDisconnect";
 import { createProcessErrorReporter } from "./processErrors";
 import { attachmentOpenAction } from "./attachmentOpen";
@@ -88,8 +90,8 @@ import { buildSummary, clearChatHistory, clearAppLog, revealData } from "./dataP
 import { registerSupportIpc } from "./support/ipc";
 import { appLog, appLogPath } from "./appLog";
 import { isPathAllowed, listAllowedRoots, grantUserRoot, listDir, searchFiles, readTextFile, writeTextFile, readDocxFile, readImageDataUrl, openInExplorer, openExternal, importFiles, startWatch, stopWatch, stopAllWatches } from "./fsExplorer";
-import { getActiveContext, setActiveSap, setActiveGui, setActiveContextEmitter, removeActiveSap, focusActiveSap, findActiveSap } from "./activeContext";
-import { focusSystem, getSystem, pickEviction, removeSystem } from "./sapSystems";
+import { getActiveContext, setActiveSap, setActiveGui, setActiveContextEmitter, removeActiveSap, focusActiveSap, findActiveSap, setActiveSapSleeping } from "./activeContext";
+import { focusSystem, getSystem, pickEviction, removeSystem, setSystemWakeHandler, touchSystem } from "./sapSystems";
 import { scrubInheritedAdtEnv } from "./adtHttpToken";
 import { readAdtCapabilities } from "./adtCapabilities";
 import { checkForUpdates, downloadUpdate, installUpdate, getLastUpdateStatus } from "./updater";
@@ -105,7 +107,8 @@ import {
   dropAllPrewarmed,
   stopPrewarming,
   prewarmChat,
-  resetChatHistory
+  resetChatHistory,
+  activeChatCwds
 } from "./axetChat";
 import { recoverAnswer } from "./axetChatRecovery";
 import { readBinding } from "./axetSessionBinding";
@@ -165,6 +168,7 @@ function disconnectSystem(projectDir: string): void {
     clearSap: () => {
       removeActiveSap(projectDir);
       removeSystem(projectDir);
+      setSystemRestarter(projectDir, null);
     },
     stopRfcBridge,
     stopAdtServer: stopReadonlyServer,
@@ -175,6 +179,53 @@ function disconnectSystem(projectDir: string): void {
   const focused = getActiveContext().sap;
   if (focused) focusSystem(focused.projectDir);
   dropAllPrewarmed();
+}
+
+// ---------------------------------------------------------------------------
+// Boştaki sistemi uyutma (systemSleep.ts, kucukler-3 madde 1)
+// ---------------------------------------------------------------------------
+// Dakikada bir: ayardaki süre boyunca ADT isteği almamış, bağlı bölmesi/turu
+// ve bekleyen onayı olmayan sistemin ADT sunucusu + RFC köprüsü kapanır.
+// Etkinlik = sunucunun her araç çağrısında yazdığı `[adt-audit]` satırı (ve
+// süreç açılışı/odak). Uyanma sapSystems.wakeIfSleeping'den: yeni jeton,
+// aynı port; sunucular burada arka planda açılıyor.
+let systemSleepTimer: NodeJS.Timeout | null = null;
+
+function startSystemSleepLoop(): void {
+  if (systemSleepTimer) return;
+  setAdtActivityListener((projectDir) => touchSystem(projectDir));
+  setSystemWakeHandler((rec) => {
+    setActiveSapSleeping(rec.projectDir, false);
+    const restart = getSystemRestarter(rec.projectDir);
+    if (!restart) return;
+    appLog("sap.uyandi", { sistem: rec.systemId });
+    restart(rec.token)
+      .then((ok) => {
+        if (!ok) appLog("sap.uyandi", { sistem: rec.systemId, sonuc: "basarisiz" });
+      })
+      .catch((err) => appLog("sap.uyandi", { sistem: rec.systemId, sonuc: "hata", sebep: (err as Error).message }));
+  });
+  systemSleepTimer = setInterval(() => {
+    const slept = sleepIdleSystems({
+      now: Date.now(),
+      idleMinutes: normalizeSystemSleepMinutes(loadConfig().systemIdleSleepMinutes),
+      hasOpenPane: (dir) => anyCwdUnder([...terminalCwds(), ...activeChatCwds()], dir),
+      hasPendingApproval,
+      stopServers: (dir) => {
+        stopReadonlyServer(dir);
+        stopRfcBridge(dir);
+        closeWriteSession(dir);
+      }
+    });
+    if (slept.length === 0) return;
+    for (const dir of slept) {
+      setActiveSapSleeping(dir, true);
+      appLog("sap.uyudu", { sistem: getSystem(dir)?.systemId ?? "-" });
+    }
+    // Isıtılmış sohbet süreçlerinin ortamındaki jeton artık geçersiz.
+    dropAllPrewarmed();
+  }, 60_000);
+  systemSleepTimer.unref?.();
 }
 
 const DEFAULT_GUI_SCRIPT_BRIDGE_PORT = 8790;
@@ -976,6 +1027,7 @@ function createWindow(): void {
     if (mainWindow?.isDestroyed()) return;
     mainWindow?.webContents.send("context:changed", context);
   });
+  startSystemSleepLoop();
 
   win.once("ready-to-show", () => {
     win.show();
@@ -1485,6 +1537,8 @@ ${result.message}`;
     const sap = typeof uuid === "string" ? findActiveSap(uuid) : getActiveContext().sap;
     if (!sap) return null;
     const rec = getSystem(sap.projectDir);
+    // Uyuyan sistem: ekran yoklaması sunucuyu uyandırmasın (odak/istek uyandırır).
+    if (rec?.sleeping) return null;
     return readAdtCapabilities(rec?.adtPort ?? 8787, sap, loadConfig().skillProfile ?? null, rec?.token, sap.projectDir);
   });
 
@@ -2993,6 +3047,7 @@ app.on("window-all-closed", () => {
 });
 
 app.on("before-quit", () => {
+  if (systemSleepTimer) clearInterval(systemSleepTimer);
   stopBoardManager();
   stopAgentMonitor();
   disposeAllTerminals();

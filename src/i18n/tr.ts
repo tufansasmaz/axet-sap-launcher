@@ -67,6 +67,8 @@ export const tr = {
 
   // Aktif bağlam — üç ekranın ortak "neredeyiz" rozeti.
   "activeContext.verified": "Bağlantı doğrulandı",
+  "activeContext.sleeping": "uyuyor",
+  "activeContext.sleepingTitle": "Boşta kaldığı için ADT sunucusu kapatıldı; ilk istekte ya da tıklayınca yeniden açılır",
   "activeContext.noAgent": "Bağlandı, ama ajan SAP'ye erişemiyor: {reason}",
   "activeContext.unverified": "Bağlantı doğrulanamadı — ADT çağrıları başarısız olabilir",
   "activeContext.showSystem": "Sistemi göster · {path}",
@@ -1337,6 +1339,9 @@ export const tr = {
   "settingsModal.sapConnectOpenTerminal": "Ajan terminalinde aç",
   "settingsModal.sapConnectOpenAsk": "Her seferinde sor",
   "settingsModal.sapConnectOpenHint": "Bağlan düğmesinin yanındaki oktan tek seferlik başka bir yer de seçebilirsin.",
+  "settingsModal.systemIdleSleepLabel": "Boştaki sistemin sunucusunu kapat",
+  "settingsModal.systemIdleSleepHint": "Bu süre boyunca hiç ADT isteği almayan bağlı sistemin ADT sunucusu ve RFC köprüsü kapanır; sistem bağlı kalır, ilk istekte ya da çipine tıklayınca yeniden açılır. Açık ajan bölmesi ya da bekleyen onayı olan sistem kapatılmaz.",
+  "settingsModal.systemIdleSleepOff": "Kapalı",
   "settingsModal.agentMemoryDigestLabel": "Ajan başlarken ekip belleği özeti",
   "settingsModal.agentMemoryDigestHint": "Belleği açık ajanın ilk satırına ekibin önemli notlarının kısa özeti eklenir. Kapalıysa yalnız bellek dosyasının yolu gider.",
   "settingsModal.memoryAutoCaptureLabel": "Konuşmalardan belleğe otomatik not",

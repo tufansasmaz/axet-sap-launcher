@@ -438,6 +438,14 @@ export function activeApprovalTokens(): string[] {
   return [...sessions.values()].map((s) => s.token);
 }
 
+/** Bu klasörün onay oturumunda cevap bekleyen istek var mı (boştaki sistem uyutulmasın; systemSleep.ts). */
+export function hasPendingApproval(projectDir: string): boolean {
+  for (const s of sessions.values()) {
+    if (sameDir(s.state.projectDir, projectDir) && s.state.records.some((r) => r.status === "bekliyor")) return true;
+  }
+  return false;
+}
+
 export function listWriteState(): SapWriteState {
   const out: SapWriteState = { sessions: [], pending: [] };
   for (const s of sessions.values()) {

@@ -29,6 +29,7 @@ import { getEmbeddedRfcRuntime } from "./embeddedRuntime";
 import { syncBriefIntoContext } from "./projectBrief";
 import { mt } from "./i18n";
 import { pickServerScript } from "./serverScriptPath";
+import { setSystemRestarter } from "./systemSleep";
 
 const NOTES_MARKER = "<!-- axet-sap-launcher:notes -->";
 const INVALID_CHARS = /[<>:"/\\|?*]/g;
@@ -1335,6 +1336,25 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
       client: credentials.client.trim(),
       user: credentials.username.trim().toUpperCase()
     }, systemTier ?? "QA", sapBinding, system.token);
+    // Boştaki sistemi uyutma (systemSleep.ts): uyanınca AYNI ayarlarla, aynı
+    // portta ve yeni jetonla yeniden açılsın. Köprü doğrulaması (45 sn) burada
+    // tekrarlanmıyor: bağlantı bir kez doğrulandı, köprü yalnız yeniden başlıyor.
+    if (readonlyOutcome.started) {
+      const adtPort = readonlyOutcome.port;
+      const identity = { sid: req.service.systemId, client: credentials.client.trim(), user: credentials.username.trim().toUpperCase() };
+      setSystemRestarter(projectDir, async (token) => {
+        if (rfcBridge) {
+          const scriptPath = pickServerScript(projectDir, skillInstall.toolkitRoot, ["sap-adt-router-bridge", "scripts", "adt_rfc_bridge.py"]);
+          const embedded = getEmbeddedRfcRuntime();
+          if (scriptPath) {
+            const r = await startRfcBridge({ projectDir, scriptPath, pythonPath: embedded?.pythonPath || "py", bridgePort: rfcBridge.bridgePort, sapnwrfcHome: embedded?.sapnwrfcHome });
+            if (!r.ok) return false;
+          }
+        }
+        const out = await attemptReadonlyServerAutoStart(skillInstall, projectDir, adtPort, identity, systemTier ?? "QA", sapBinding, token);
+        return out.started && out.port === adtPort;
+      });
+    }
     // Kademe `.conn_adt`'deki satırla aynı kuraldan (`buildConnAdt`: işaretsiz
     // sistem QA) ama sunucuya ortamdan gidiyor: `.conn_adt`'yi ajan
     // düzenleyebiliyor, sunucunun ortamını düzenleyemiyor.

@@ -224,6 +224,22 @@ const OWN_STOP_WAIT_MS = 10_000;
 
 const running = new Map<string, RunningServer>();
 
+/**
+ * Motor her araç çağrısında stderr'e bir `[adt-audit] {...}` satırı yazıyor
+ * (adt_mcp_server.py `_http_audit`; /health ve /tools yazmıyor). Boştaki
+ * sistemi uyutma (systemSleep.ts) etkinliği buradan öğreniyor.
+ */
+export function isAdtActivity(text: string): boolean {
+  return text.includes("[adt-audit]");
+}
+
+let activityListener: ((key: string) => void) | null = null;
+
+/** Sunucuya ADT isteği geldiğinde çağrılır (anahtar = proje klasörü). */
+export function setAdtActivityListener(fn: ((key: string) => void) | null): void {
+  activityListener = fn;
+}
+
 function pushTail(server: RunningServer, chunk: Buffer): void {
   const text = chunk.toString("utf-8");
   server.logStream?.write(text);
@@ -673,7 +689,16 @@ async function startReadonlyServerInner(opts: ReadonlyServerStartOptions): Promi
 
   server.proc = proc;
   proc.stdout?.on("data", (chunk: Buffer) => pushTail(server, chunk));
-  proc.stderr?.on("data", (chunk: Buffer) => pushTail(server, chunk));
+  proc.stderr?.on("data", (chunk: Buffer) => {
+    pushTail(server, chunk);
+    if (activityListener && isAdtActivity(chunk.toString("utf-8"))) {
+      try {
+        activityListener(key);
+      } catch {
+        // dinleyicinin hatası sunucu çıktısını bozmasın
+      }
+    }
+  });
   proc.on("exit", (code, signal) => {
     server.exited = true;
     server.exitInfo = `exit code=${code ?? "?"} signal=${signal ?? "-"}`;
