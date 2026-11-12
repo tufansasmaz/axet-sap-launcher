@@ -1393,6 +1393,7 @@ export const tr = {
   "agents.stateRunning": "Çalışıyor",
   "agents.stateIdle": "Boşta",
   "agents.stateIdleFor": "Boşta {min} dk",
+  "agents.stateStalled": "{min} dk ilerleme yok — takılmış olabilir",
   "agents.stateAsking": "Soru soruyor",
   "agents.stateFinished": "Bitti",
   "agents.stateError": "Hata",

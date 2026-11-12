@@ -1304,6 +1304,7 @@ export const en: Record<TranslationKey, string> = {
   "agents.stateRunning": "Working",
   "agents.stateIdle": "Idle",
   "agents.stateIdleFor": "Idle {min} min",
+  "agents.stateStalled": "No progress for {min} min — may be stuck",
   "agents.stateAsking": "Asking",
   "agents.stateFinished": "Finished",
   "agents.stateError": "Error",

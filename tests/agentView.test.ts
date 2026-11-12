@@ -50,6 +50,22 @@ describe("statusText ve statusTone", () => {
     expect(statusText({ state: "asking", source: "exact", lastActivity: 1 }, NOW)).toEqual({ key: "agents.stateAsking" });
   });
 
+  // kararlilik-2 R8c: "adımlarda takılı kalıyor, saatlerce bekletiyor".
+  // Kesin kaynakta (axet-code veritabanı) çalışıyor ama 20 dk ilerleme yok.
+  it("kesin kaynakta 20 dk ilerlemesiz çalışma 'takılmış olabilir'; tahminide değil", () => {
+    expect(statusText({ state: "running", source: "exact", lastActivity: NOW - 25 * 60_000 }, NOW)).toEqual({
+      key: "agents.stateStalled",
+      params: { min: 25 }
+    });
+    expect(statusText({ state: "running", source: "exact", lastActivity: NOW - 5 * 60_000 }, NOW)).toEqual({ key: "agents.stateRunning" });
+    expect(statusText({ state: "running", source: "estimated", lastActivity: NOW - 60 * 60_000 }, NOW)).toEqual({ key: "agents.stateRunning" });
+  });
+
+  it("takılmış kart: uyarı tonu ve yeniden başlat düğmesi", () => {
+    const view = cardStatus(pane("a", { run: { state: "running", ptyId: "t-a" } }), { state: "running", source: "exact", lastActivity: NOW - 30 * 60_000 }, NOW);
+    expect(view).toMatchObject({ key: "agents.stateStalled", tone: "warning", restartable: true });
+  });
+
   it("renk tonları: çalışıyor yeşil, soru kehribar, hata kırmızı, öteki gri", () => {
     expect(statusTone("running")).toBe("success");
     expect(statusTone("asking")).toBe("warning");
