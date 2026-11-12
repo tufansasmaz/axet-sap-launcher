@@ -150,6 +150,7 @@ export const MAIN_EN = {
   "adtServer.mcpMissing": "The `mcp` package is not installed.",
   "adtServer.dotenvMissing": "`python-dotenv` is not installed.",
   "adtServer.someDepMissing": "A Python dependency is not installed.",
+  "adtServer.portBusyOther": "Port {port} is held by another process: {name} — close it and reconnect to the system.",
   "adtServer.pythonBadExe":
     "The Python launcher (py) could not start the interpreter: a python3.exe on PATH is broken or cannot run on this PC. Find it with `where python3` and remove or repair it; details below.",
   "adtServer.portInUse": "Port {port} is in use by another process.",

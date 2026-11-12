@@ -154,6 +154,7 @@ export const MAIN_TR = {
   "adtServer.mcpMissing": "`mcp` paketi kurulu değil.",
   "adtServer.dotenvMissing": "`python-dotenv` kurulu değil.",
   "adtServer.someDepMissing": "Bir Python bağımlılığı kurulu değil.",
+  "adtServer.portBusyOther": "{port} portu başka bir süreçte: {name} — o süreci kapatıp sisteme yeniden bağlanın.",
   "adtServer.pythonBadExe":
     "Python başlatıcısı (py) yorumlayıcıyı açamadı: PATH'teki bir python3.exe bozuk ya da bu bilgisayarda çalışmıyor. `where python3` ile bulup kaldırın ya da düzeltin; ayrıntı aşağıda.",
   "adtServer.portInUse": "{port} portu başka bir process tarafından kullanılıyor.",

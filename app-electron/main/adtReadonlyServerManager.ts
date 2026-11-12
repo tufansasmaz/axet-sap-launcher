@@ -67,6 +67,8 @@ export interface ReadonlyServerStartOptions {
    * Varsayılan: Windows'ta netstat + taskkill /T. Yalnızca testler değiştirir.
    */
   reclaimPort?: (port: number) => Promise<boolean>;
+  /** 401 veren sunucunun sahiplik denetimi (staleOwnServer). Yalnızca testler değiştirir. */
+  inspectForeign?: (port: number) => Promise<{ reclaimed: boolean; name: string }>;
 }
 
 /** 127.0.0.1:port'ta DİNLEYEN sürecin PID'i (`netstat -ano`); yoksa null. */
@@ -94,6 +96,77 @@ function runQuiet(file: string, args: string[]): Promise<string | null> {
       resolve(null);
     }
   });
+}
+
+export interface ProcInfo {
+  pid: number;
+  ppid: number;
+  name: string;
+  cmd: string;
+}
+
+const OUR_SERVER_SCRIPT = /[\\/]sap-adt(?:-readonly)?[\\/]scripts[\\/]adt_(?:readonly|gated)_server\.py\b/i;
+const LAUNCH_CHAIN = /^(?:py|pyw|python\d*(?:\.\d+)?|pythonw|cmd|conhost)\.exe$/i;
+
+/**
+ * Jeton dışında sahiplik kanıtı: dinleyen süreç bizim `adt_*_server.py`
+ * betiğimizi çalıştıran bir Python ve onu başlatan zincirde (py/python/cmd
+ * dışında) YAŞAYAN bir süreç yok — ya da yaşayan tek ata eski bir NTT Studio /
+ * bu süreç. Kanıt yoksa `ours: false`; ad ekranda söyleniyor.
+ */
+export function staleOwnServer(listenPid: number, procs: Map<number, ProcInfo>, selfPid: number): { ours: boolean; name: string } {
+  const me = procs.get(listenPid);
+  if (!me) return { ours: false, name: "" };
+  const name = me.name;
+  if (!/^(?:py|python\d*(?:\.\d+)?|pythonw)\.exe$/i.test(name) || !OUR_SERVER_SCRIPT.test(me.cmd)) return { ours: false, name };
+  const seen = new Set<number>([listenPid]);
+  let cur = procs.get(me.ppid);
+  while (cur && !seen.has(cur.pid)) {
+    seen.add(cur.pid);
+    if (!LAUNCH_CHAIN.test(cur.name)) {
+      const ours = cur.pid === selfPid || /^NTT Studio\.exe$/i.test(cur.name);
+      return { ours, name };
+    }
+    cur = procs.get(cur.ppid);
+  }
+  // Zincirin üstü artık yok: başlatan (eski NTT Studio ya da onun ajanı) ölmüş.
+  return { ours: true, name };
+}
+
+async function processTable(): Promise<Map<number, ProcInfo>> {
+  const out = await runQuiet("powershell.exe", [
+    "-NoProfile",
+    "-NonInteractive",
+    "-Command",
+    // UTF-8: komut satırlarındaki Türkçe karakterler OEM kod sayfasında JSON'u bozmasın.
+    "[Console]::OutputEncoding=[Text.Encoding]::UTF8; Get-CimInstance Win32_Process | Select-Object ProcessId,ParentProcessId,Name,CommandLine | ConvertTo-Json -Compress"
+  ]);
+  const map = new Map<number, ProcInfo>();
+  if (!out) return map;
+  try {
+    const rows = JSON.parse(out) as { ProcessId: number; ParentProcessId: number; Name: string; CommandLine: string | null }[];
+    for (const r of Array.isArray(rows) ? rows : [rows]) {
+      map.set(r.ProcessId, { pid: r.ProcessId, ppid: r.ParentProcessId, name: String(r.Name ?? ""), cmd: String(r.CommandLine ?? "") });
+    }
+  } catch {
+    /* okunamadı: kanıt yok */
+  }
+  return map;
+}
+
+/** 401 veren sunucu bizim arta kalanımızsa kapatır; değilse sürecin adını döner. */
+async function inspectForeignOwner(port: number): Promise<{ reclaimed: boolean; name: string }> {
+  if (process.platform !== "win32") return { reclaimed: false, name: "" };
+  const out = await runQuiet("netstat", ["-ano", "-p", "TCP"]);
+  const pid = out ? listeningPid(out, port) : null;
+  if (!pid) return { reclaimed: false, name: "" };
+  let table = await processTable();
+  // PowerShell/WMI ara sıra boş dönüyor (ölçüldü: ilk denemelerde 0 satır); bir kez daha.
+  if (!table.has(pid)) table = await processTable();
+  const verdict = staleOwnServer(pid, table, process.pid);
+  if (!verdict.ours) return { reclaimed: false, name: verdict.name };
+  const killed = (await runQuiet("taskkill", ["/PID", String(pid), "/T", "/F"])) !== null;
+  return { reclaimed: killed, name: verdict.name };
 }
 
 async function reclaimOwnPort(port: number): Promise<boolean> {
@@ -441,18 +514,32 @@ async function startReadonlyServerInner(opts: ReadonlyServerStartOptions): Promi
   // token'ını bilemeyiz; ya ölü bir oturuma sorar (her yazma reddedilir) ya da
   // başka bir projenin oturumuna.
   let onPort = await probeHealth(opts.port);
+  // Jetonumuzu bilmeyen (401) sunucu: önceki oturumdan arta kalan BİZİM
+  // sunucumuz mu, jeton dışında kanıtla (staleOwnServer). Eskiden hiç
+  // dokunulmuyordu ve uygulama çöktükten sonra hiçbir sisteme ADT
+  // çalışmıyordu (kararlılık 3, 2026-11-12). Kanıt yoksa adıyla söylenir.
+  let foreignName = "";
+  if (onPort.unauthorized) {
+    const owner = await (opts.inspectForeign ?? inspectForeignOwner)(opts.port);
+    foreignName = owner.name;
+    if (owner.reclaimed && (await waitPortFree(opts.port, OWN_STOP_WAIT_MS))) onPort = DEAD;
+  }
   if (onPort.unauthorized && opts.gate) {
     // Büyük olasılıkla önceki launcher'dan kalan gated sunucu: onay ucu artık
     // onu tanımıyor, kalp atışında kendini kapatacak. Öldürmüyoruz, bekliyoruz.
     if (!(await waitPortFree(opts.port, opts.staleWaitMs ?? STALE_GATED_WAIT_MS))) {
-      return { ok: false, alreadyRunning: false, external: true, reason: "foreignTokenGated", message: mt("adtServer.foreignTokenGated", { port: opts.port }) };
+      return foreignName
+        ? { ok: false, alreadyRunning: false, external: true, reason: "portBusyOther", message: mt("adtServer.portBusyOther", { port: opts.port, name: foreignName }) }
+        : { ok: false, alreadyRunning: false, external: true, reason: "foreignTokenGated", message: mt("adtServer.foreignTokenGated", { port: opts.port }) };
     }
     onPort = DEAD;
   }
   if (onPort.unauthorized) {
     // Token'ını bilmediğimiz bir sunucu: ne kullanabiliriz ne de sahibiyiz.
     // Öldürmüyoruz; kullanıcıya adıyla söylüyoruz.
-    return { ok: false, alreadyRunning: false, external: true, reason: "foreignToken", message: mt("adtServer.foreignToken", { port: opts.port }) };
+    return foreignName
+      ? { ok: false, alreadyRunning: false, external: true, reason: "portBusyOther", message: mt("adtServer.portBusyOther", { port: opts.port, name: foreignName }) }
+      : { ok: false, alreadyRunning: false, external: true, reason: "foreignToken", message: mt("adtServer.foreignToken", { port: opts.port }) };
   }
   // Portta BİZİM anahtarımızı bilen ama yanlış yüzeyi sunan bir süreç: anahtar
   // yalnız bu sürecin belleğinde ve çocuklarının ortamında, yani o süreç bizim
