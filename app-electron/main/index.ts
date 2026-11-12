@@ -68,7 +68,7 @@ import { removeBrowserScreenshot, writeBrowserScreenshot } from "./browserFiles"
 import { ensureMemoryFile, memoryAbsPath, readMemoryFile, writeMemoryFile } from "./memoryFiles";
 import { createMemoryNotifier } from "./memoryNotifier";
 import { createNotesStore } from "./memoryNotesStore";
-import { GENERAL_MEMORY_ID, memoryDigest } from "../shared/memoryNotes";
+import { DIGEST_MAX, GENERAL_MEMORY_ID, memoryDigest } from "../shared/memoryNotes";
 import { rulesDigest } from "../shared/memoryRules";
 import { createRulesStore } from "./memoryRulesStore";
 import { createMemoryService } from "./memoryService";
@@ -785,7 +785,7 @@ const memoryNotifier = createMemoryNotifier({
   // boş dize → satır eskisi gibi yalnız bellek yolu.
   // Tur 13: kullanıcının "Kimlik ve kurallar"ı önde (özet ayarı kapalıyken de gider).
   digest: (workspaceId, paneId) =>
-    [rulesDigest(rulesStore.get(workspaceId), paneId), loadConfig().agentMemoryDigest === false ? "" : memoryDigest(notesStore.list(workspaceId), paneId)]
+    [rulesDigest(rulesStore.get(workspaceId), paneId), loadConfig().agentMemoryDigest === false ? "" : memoryDigest(notesStore.list(workspaceId), paneId, DIGEST_MAX, notesStore.list(GENERAL_MEMORY_ID))]
       .filter(Boolean)
       .join(" ")
 });

@@ -75,6 +75,8 @@ describe("agentMemoryDigest bağlantısı (kaynak düzeyi)", () => {
     const { readFileSync: read } = await import("node:fs");
     const main = read(path.join(__dirname, "..", "app-electron", "main", "index.ts"), "utf8").replace(/\r\n/g, "\n");
     expect(main).toMatch(/digest: \(workspaceId, paneId\) =>\s*\[rulesDigest\([^\]]*\), loadConfig\(\)\.agentMemoryDigest === false \? "" : memoryDigest\(/);
+    // kucukler-3: Genel notlar da aynı ayar kapsamında, aynı toplam sınırla.
+    expect(main).toContain("memoryDigest(notesStore.list(workspaceId), paneId, DIGEST_MAX, notesStore.list(GENERAL_MEMORY_ID))");
   });
 });
 

@@ -1250,7 +1250,7 @@ export const en: Record<TranslationKey, string> = {
   "settingsModal.systemIdleSleepHint": "A connected system that receives no ADT request for this long has its ADT server and RFC bridge stopped; it stays connected and starts again on the next request or when you click its chip. A system with an open agent pane or a pending approval is never stopped.",
   "settingsModal.systemIdleSleepOff": "Off",
   "settingsModal.agentMemoryDigestLabel": "Team memory summary when an agent starts",
-  "settingsModal.agentMemoryDigestHint": "An agent with memory gets a short summary of the team's key notes on its first line. Off: only the memory file path.",
+  "settingsModal.agentMemoryDigestHint": "An agent with memory gets a short summary of the team's key notes, plus a few top General notes, on its first line. Off: only the memory file path.",
   "settingsModal.memoryAutoCaptureLabel": "Auto-capture notes from conversations",
   "settingsModal.memoryAutoCaptureHint": "Decisions/rules in Flow messages and learnings from agents' finished work are added to team memory automatically (similar notes are updated, secrets are skipped). Flow shows an \"Added to memory — Undo\" line.",
   "settingsModal.leadTeamLabel": "Lead agent can build a team",

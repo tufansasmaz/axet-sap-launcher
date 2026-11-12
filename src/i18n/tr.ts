@@ -1343,7 +1343,7 @@ export const tr = {
   "settingsModal.systemIdleSleepHint": "Bu süre boyunca hiç ADT isteği almayan bağlı sistemin ADT sunucusu ve RFC köprüsü kapanır; sistem bağlı kalır, ilk istekte ya da çipine tıklayınca yeniden açılır. Açık ajan bölmesi ya da bekleyen onayı olan sistem kapatılmaz.",
   "settingsModal.systemIdleSleepOff": "Kapalı",
   "settingsModal.agentMemoryDigestLabel": "Ajan başlarken ekip belleği özeti",
-  "settingsModal.agentMemoryDigestHint": "Belleği açık ajanın ilk satırına ekibin önemli notlarının kısa özeti eklenir. Kapalıysa yalnız bellek dosyasının yolu gider.",
+  "settingsModal.agentMemoryDigestHint": "Belleği açık ajanın ilk satırına ekibin önemli notlarının ve Genel notlardan en önemli birkaç başlığın kısa özeti eklenir. Kapalıysa yalnız bellek dosyasının yolu gider.",
   "settingsModal.memoryAutoCaptureLabel": "Konuşmalardan belleğe otomatik not",
   "settingsModal.memoryAutoCaptureHint": "Akış mesajlarındaki kararlar/kurallar ve ajanların biten işlerindeki öğrenimler ekip belleğine kendiliğinden eklenir (benzeri varsa güncellenir, gizli içerik alınmaz). Akış'ta \"Belleğe eklendi — Geri al\" satırı görünür.",
   "settingsModal.leadTeamLabel": "Lider ajan ekip kurabilsin",

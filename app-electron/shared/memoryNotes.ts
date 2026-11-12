@@ -506,30 +506,55 @@ const KIND_LABEL: Record<NoteKind, string> = {
   not: "Not"
 };
 export const DIGEST_MAX = 700;
+/** Özetin "Genel" bölümü: en çok bu kadar başlık ve bu kadar karakter. */
+export const GENERAL_DIGEST_COUNT = 3;
+export const GENERAL_DIGEST_MAX = 200;
 
 /**
  * Ajan yeni oturum açınca verilen kısa bellek özeti: ekip notları ve ajanın
  * kendi notları, önce türe (karar > öğrenim > olgu…) sonra yeniliğe göre;
  * yalnız başlıklar, tek satır, en çok `max` karakter. Not yoksa "".
+ *
+ * `general` (kucukler-3): "Genel" notlardan kısa bir bölüm — en çok
+ * GENERAL_DIGEST_COUNT başlık, toplamın üçte birini (en çok
+ * GENERAL_DIGEST_MAX) geçmeden. Önce o ayrılıyor, kalan bütçe ekip notlarının;
+ * toplam yine `max`'ı aşmıyor.
  */
-export function memoryDigest(notes: readonly MemoryNote[], ownerId: string, max = DIGEST_MAX): string {
-  const relevant = notes
-    .filter((n) => n.owner === TEAM_OWNER || n.owner === ownerId)
-    .sort((a, b) => KIND_RANK[a.kind] - KIND_RANK[b.kind] || b.updated - a.updated);
-  if (relevant.length === 0) return "";
-  const head = `[Ekip bellegi] ${relevant.length} not. Onemliler:`;
+export function memoryDigest(notes: readonly MemoryNote[], ownerId: string, max = DIGEST_MAX, general: readonly MemoryNote[] = []): string {
+  const byRank = (a: MemoryNote, b: MemoryNote) => KIND_RANK[a.kind] - KIND_RANK[b.kind] || b.updated - a.updated;
+  const piece = (note: MemoryNote) => ` ${KIND_LABEL[note.kind]}: ${note.title.replace(/[\s;]+/g, " ").trim()};`;
+  const relevant = notes.filter((n) => n.owner === TEAM_OWNER || n.owner === ownerId).sort(byRank);
   const tail = ' Ayrinti: ntt-team memory search "<sorgu>" / get "<baslik>".';
-  let out = head;
-  let shown = 0;
-  for (const note of relevant) {
-    const title = note.title.replace(/[\s;]+/g, " ").trim();
-    const piece = ` ${KIND_LABEL[note.kind]}: ${title};`;
-    if (out.length + piece.length + tail.length > max) break;
-    out += piece;
-    shown += 1;
+  const gen = [...general].sort(byRank);
+  const genBudget = Math.min(GENERAL_DIGEST_MAX, Math.floor(max / 3));
+  let genPart = "";
+  if (gen.length > 0) {
+    let part = ` [Genel] ${gen.length} not:`;
+    let shownGen = 0;
+    for (const note of gen.slice(0, GENERAL_DIGEST_COUNT)) {
+      const p = piece(note);
+      if (part.length + p.length > genBudget) break;
+      part += p;
+      shownGen += 1;
+    }
+    if (shownGen > 0) genPart = part;
   }
-  if (shown === 0) return "";
-  return `${out}${tail}`;
+  let out = "";
+  if (relevant.length > 0) {
+    out = `[Ekip bellegi] ${relevant.length} not. Onemliler:`;
+    let shown = 0;
+    for (const note of relevant) {
+      const p = piece(note);
+      if (out.length + p.length + genPart.length + tail.length > max) break;
+      out += p;
+      shown += 1;
+    }
+    if (shown === 0) out = "";
+  }
+  if (!out) genPart = genPart.trim();
+  if (!out && !genPart) return "";
+  if (out.length + genPart.length + tail.length > max) return out ? `${out}${tail}` : "";
+  return `${out}${genPart}${tail}`;
 }
 
 // ---------------------------------------------------------------- akıştan not

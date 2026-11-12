@@ -491,7 +491,10 @@ bilmen gerekmez); eşleşmeyen bölümler listeden çekilir.
   - **Gömülü terminal kabuğu**: cmd.exe veya PowerShell — Ajanlar ekranındaki
     kabuk ve ajan bölmeleri bu kabukla açılır, harici pencere açılmaz.
   - **Ajan başlarken ekip belleği özeti**: Belleği açık ajanın ilk satırına
-    ekibin önemli notlarının kısa özeti eklenir (varsayılan açık).
+    ekibin önemli notlarının kısa özeti eklenir (varsayılan açık). Özetin
+    sonunda **Genel** notlardan da kısa bir bölüm var: türe (karar önce) ve
+    yeniliğe göre en çok 3 başlık; toplam uzunluk sınırı (700 karakter) aynı,
+    ekip notları önce gelir.
   - **Lider ajan ekip kurabilsin** (varsayılan açık), **Lider açılışlarını
     onayla** (varsayılan kapalı) ve **Ekip başına lider açımı ajan** (varsayılan
     4): bkz. Ajanlar Ekranı → Lider ve otomatik ekip.

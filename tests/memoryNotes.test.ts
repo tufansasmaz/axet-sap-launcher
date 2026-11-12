@@ -193,6 +193,36 @@ describe("baslangic ozeti", () => {
     expect(memoryDigest(long, "p1", 300).length).toBeLessThanOrEqual(300);
     expect(memoryDigest([], "p1")).toBe("");
   });
+
+  // kucukler-3 madde 2: "Genel" notlardan kısa, sınırlı bir bölüm.
+  it("genel notlardan en onemli/en yeni birkac baslik ekleniyor, toplam sinir korunuyor", () => {
+    const team = [note({ title: "Ekip kararı", kind: "karar" })];
+    const general = [
+      note({ title: "Genel eski not", kind: "not", updated: 1 }),
+      note({ title: "Genel karar", kind: "karar", updated: 2 }),
+      note({ title: "Genel olgu yeni", kind: "olgu", updated: 9 }),
+      note({ title: "Genel olgu eski", kind: "olgu", updated: 3 }),
+      note({ title: "Genel dördüncü", kind: "olgu", updated: 1 })
+    ];
+    const d = memoryDigest(team, "p1", undefined, general);
+    expect(d.startsWith("[Ekip bellegi] 1 not.")).toBe(true);
+    expect(d).toContain("[Genel] 5 not:");
+    expect(d.indexOf("Karar: Ekip kararı")).toBeLessThan(d.indexOf("[Genel]"));
+    expect(d.indexOf("Karar: Genel karar")).toBeLessThan(d.indexOf("Olgu: Genel olgu yeni"));
+    expect(d.indexOf("Olgu: Genel olgu yeni")).toBeLessThan(d.indexOf("Olgu: Genel olgu eski"));
+    expect(d).not.toContain("Genel dördüncü");
+    expect(d).not.toContain("Genel eski not");
+    expect(d.endsWith('get "<baslik>".')).toBe(true);
+    expect(d).not.toMatch(/\n/);
+    // Yalnız genel not varsa da özet çıkıyor.
+    expect(memoryDigest([], "p1", undefined, general)).toContain("[Genel] 5 not:");
+    // Toplam sınır: uzun ekip + uzun genel listesi birlikte sınırı aşmıyor; ekip önde.
+    const long = Array.from({ length: 200 }, (_, i) => note({ title: `Uzun başlık numarası ${i}`, kind: "karar" }));
+    const capped = memoryDigest(long, "p1", 300, long);
+    expect(capped.length).toBeLessThanOrEqual(300);
+    expect(capped.startsWith("[Ekip bellegi]")).toBe(true);
+    expect(capped).toContain("[Genel]");
+  });
 });
 
 describe("akistan not", () => {
