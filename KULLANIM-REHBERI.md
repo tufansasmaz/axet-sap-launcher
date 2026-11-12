@@ -1357,8 +1357,8 @@ açabilirsin. Pencere uygulamadaki tüm kısayolları listeler.
 
 - **Ayarlarım birden varsayılana döndü**: Ayar dosyası (config.json)
   okunamazsa uygulama varsayılanlarla açılır ama bozuk dosyayı silmeden önce
-  aynı klasöre  olarak yedekler
-  (). Ayar dosyası artık yarıda kalmayacak
+  aynı klasöre `config.json.bozuk-<tarih>` olarak yedekler
+  (`%APPDATA%\axet-sap-launcher`). Ayar dosyası artık yarıda kalmayacak
   şekilde (önce geçici dosyaya) yazılıyor.
 - **RFC köprüsü "portu NTT Studio dışında bir süreç tutuyor"**: 8788'i
   uygulamanın başlatmadığı bir süreç tutuyor (çoğunlukla önceki bir oturumdan
