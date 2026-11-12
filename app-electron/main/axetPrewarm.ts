@@ -16,6 +16,9 @@
 // - Sahiplenilmeden kapanan süreç havuzdan düşüyor; ölü süreç asla verilmez.
 // - Sahiplenilene kadar gelen stdout/stderr ve kapanış olayları tamponlanıyor;
 //   ilk `-v` satırları (güncelleme duyurusu dahil) böylece kaybolmuyor.
+// - Uygulama ÇÖKERSE: süreç ana süreçle birlikte ölüyor (libuv Job Object,
+//   bkz. spawnAxetSafely). Ölmeseydi stdin 0 baytla kapanır ve axet-code boş
+//   istemle tur başlatırdı (1.5.1'de bunu reddeden bayrak/ayar yok; ölçüldü).
 
 import { EventEmitter } from "node:events";
 import { buildRunArgs, type ChildLike } from "./axetHeadless";

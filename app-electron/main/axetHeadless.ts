@@ -224,6 +224,11 @@ function failedChild(err: Error): ChildLike {
 /**
  * axet-code'u açar; bozuk exe'yi HİÇ çalıştırmaz (Windows penceresi, bkz.
  * axetExe.ts) ve `spawn`'ın senkron fırlattığı hatayı (EFTYPE) olaya çevirir.
+ *
+ * `detached` YOK ve olmamalı: libuv çocuğu KILL_ON_JOB_CLOSE işli bir Job
+ * Object'e koyuyor, ana süreç çökünce axet-code da aynı anda ölüyor. Ayrılmış
+ * bir ısıtma süreci çökmede stdin'i 0 baytla kapanıp boş istemle tur başlatır
+ * (ölçüm 2026-11-12, .superpowers/olcum/axet151/cokme-job; tests/prewarmCrash).
  */
 export function spawnAxetSafely(cmd: string, args: string[], opts: { cwd: string; env: NodeJS.ProcessEnv }): ChildLike {
   if (cmd === "axet-code" && axetExeCheck(opts.env).kind === "broken") return failedChild(new Error(mt("chat.axetBroken")));
