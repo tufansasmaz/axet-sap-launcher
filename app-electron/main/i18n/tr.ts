@@ -196,6 +196,7 @@ export const MAIN_TR = {
   "rfcBridge.spawnFailed": "RFC bridge process başlatılamadı ({pythonPath}): {detail}",
   "rfcBridge.didNotStart": "RFC bridge {port} portunda ayağa kalkmadı. {detail}",
   "rfcBridge.started": "RFC bridge başlatıldı (http://127.0.0.1:{port}).",
+  "rfcBridge.portBusy": "RFC köprüsü başlatılamadı: {port} portunu NTT Studio dışında bir süreç tutuyor. O süreci kapatıp (ya da bilgisayarı yeniden başlatıp) yeniden bağlan.",
 
   // --- sapRouter.ts ---
   "sapRouter.unexpectedResponse": "SAProuter rotayı kabul etmedi (yanıt: {type}).",
