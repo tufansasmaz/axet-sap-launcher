@@ -36,6 +36,7 @@ import { readMessagesSince, resolveSessionDb, sessionHasUnansweredToolCall, sess
 import { askUserAsText, splitOptionsBlock, type AskUserRequest } from "./axetToolEvents";
 import { connectorGuidance } from "./connectorHealth";
 import { shouldUseConnectors } from "./connectorPolicy";
+import { getAxetModelConfig } from "./axetModels";
 import { mt } from "./i18n";
 import { ApprovalTracker, registerApprovalCandidate } from "./sapWrite/approvalEvents";
 import { PENDING_TTL_MS } from "./sapWrite/policy";
@@ -368,8 +369,34 @@ function isUpdateBlock(error: string | undefined): boolean {
  * açıklayıcı metinleri korunuyor (politika engeli, kalıcı 403, zorunlu
  * güncelleme, 6 saat sınırı); geri kalanında sağlayıcının kendi cümlesi.
  */
-function userError(result: HeadlessTurnResult, retried: boolean): string {
+// Başsız tur axet-code'un ilk kurulumu (giriş / proje / model) yapılmadan
+// çalışamıyor. axet-code'un kendi metinleri (ikiliden okundu, 2026-11-12):
+// "Not authenticated, run 'axet-code login' first." ve "agent coordinator
+// could not be initialized: %w (run `axet-code` interactively once to complete
+// onboarding ...)"; alttaki hata kullanıcıya çoğu zaman yalnız "EOF" olarak
+// ulaşıyordu (R6). Model ayarı hiç yokken gelen BOŞ cevap da aynı şey (R9):
+// "Yeniden üret" onu düzeltmez.
+const RE_SETUP = /not authenticated|axet-code login|complete onboarding|could not be initialized|^\s*(?:error:?\s*)?EOF\s*$/im;
+
+export function axetSetupHint(raw: string, ctx: { modelChosen: boolean; configHasModel: boolean }): string | null {
+  const text = raw.trim();
+  if (text && RE_SETUP.test(text)) return mt("chat.axetSetupNeeded", { detail: text.slice(-300) });
+  if (!text && !ctx.modelChosen && !ctx.configHasModel) return mt("chat.axetSetupNeeded", { detail: "-" });
+  return null;
+}
+
+function configHasModel(): boolean {
+  try {
+    return getAxetModelConfig().config?.large != null;
+  } catch {
+    return true; // bilinmiyorsa eski davranış
+  }
+}
+
+function userError(result: HeadlessTurnResult, retried: boolean, modelChosen = true): string {
   const raw = result.error ?? "";
+  const setup = axetSetupHint(raw, { modelChosen, configHasModel: configHasModel() });
+  if (setup) return setup;
   if (isUpdateBlock(raw)) {
     const installed = /Installed version:\s*([0-9][\w.+-]*)/i.exec(raw)?.[1] ?? "";
     const latest = /New version:\s*([0-9][\w.+-]*)/i.exec(raw)?.[1] ?? "";
@@ -697,7 +724,7 @@ export async function sendChatMessage(
       return {
         ok: false,
         text: joinText(text, result.text),
-        error: userError(result, retried),
+        error: userError(result, retried, model !== null),
         usedConnectors: useConnectors,
         // Zorunlu güncellemede "Devam et" aynı duvara çarpar: gösterilecek
         // şey güncelleme hatasının kendisi.
@@ -719,7 +746,10 @@ export async function sendChatMessage(
       // Boş cevap aşağıda hataya çevriliyor; günlük gerçeği söylesin.
       sonuc: empty ? "bos" : "ok"
     });
-    if (empty) return { ...out, ok: false, error: mt("chat.emptyAnswerTui") };
+    if (empty) {
+      const setup = axetSetupHint("", { modelChosen: model !== null, configHasModel: configHasModel() });
+      return { ...out, ok: false, error: setup ?? mt("chat.emptyAnswerTui") };
+    }
     return out;
   } finally {
     approvals.dispose();

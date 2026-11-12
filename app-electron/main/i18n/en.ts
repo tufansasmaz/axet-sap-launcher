@@ -48,6 +48,8 @@ export const MAIN_EN = {
   // --- axetCodeVersion.ts (binary status) ---
   "chat.axetTooOld": "Chat needs axet-code {min} or later; installed version is {version}. Please update axet-code.",
   "chat.axetMissing": "axet-code was not found. Please install axet-code.",
+  "chat.axetSetupNeeded":
+    "axet-code's first-time setup is not finished (sign-in, project or model choice). Chat runs axet-code without a window and cannot ask those setup questions. Open an axet-code agent on the Agents screen (or type `axet-code` in a terminal), finish sign-in and model choice, then send the message again. axet-code said: {detail}",
   "chat.axetBroken":
     "The axet-code program file is broken (axet-code.exe is empty or invalid; usually an update cut short while the program was open). NTT Studio therefore does not run it at all. To recover: close NTT Studio and every axet-code window, delete %LOCALAPPDATA%\\axet-code\\bin\\axet-code.exe and reinstall axet-code from Company Portal. If %TEMP%\\axet-code-update.msi exists, this also repairs it (Win+R): msiexec /fa \"%TEMP%\\axet-code-update.msi\"",
 

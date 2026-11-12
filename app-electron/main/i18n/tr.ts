@@ -51,6 +51,8 @@ export const MAIN_TR = {
   // --- axetCodeVersion.ts (ikili durum) ---
   "chat.axetTooOld": "Sohbet için axet-code {min} veya üstü gerekiyor; kurulu sürüm {version}. axet-code'u güncelleyin.",
   "chat.axetMissing": "axet-code bulunamadı. axet-code'u kurun.",
+  "chat.axetSetupNeeded":
+    "axet-code'un ilk kurulumu tamamlanmamış (giriş, proje ya da model seçimi). Sohbet axet-code'u penceresiz çalıştırıyor ve ilk kurulum sorularını soramıyor. Ajanlar ekranında bir axet-code ajanı açın (ya da bir terminalde `axet-code` yazın), girişi ve model seçimini bitirin, sonra mesajı yeniden gönderin. axet-code'un yanıtı: {detail}",
   "chat.axetBroken":
     "axet-code program dosyası bozuk (axet-code.exe boş ya da geçersiz; çoğunlukla güncelleme, program açıkken yarıda kalınca). NTT Studio bu yüzden onu hiç çalıştırmıyor. Kurtarma: NTT Studio'yu ve tüm axet-code pencerelerini kapatın, %LOCALAPPDATA%\\axet-code\\bin\\axet-code.exe dosyasını silin ve axet-code'u Company Portal'dan yeniden yükleyin. %TEMP%\\axet-code-update.msi varsa Win+R ile şu da onarır: msiexec /fa \"%TEMP%\\axet-code-update.msi\"",
 
