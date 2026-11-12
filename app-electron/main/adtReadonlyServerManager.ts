@@ -69,6 +69,11 @@ export interface ReadonlyServerStartOptions {
   reclaimPort?: (port: number) => Promise<boolean>;
   /** 401 veren sunucunun sahiplik denetimi (staleOwnServer). Yalnızca testler değiştirir. */
   inspectForeign?: (port: number) => Promise<{ reclaimed: boolean; name: string }>;
+  /**
+   * Bu sistemin ADT jetonu (sapSystems.ts). Çoklu sistemde her sunucunun
+   * jetonu ayrı; verilmezse sürecin varsayılan jetonu (tek sistem / testler).
+   */
+  token?: string;
 }
 
 /** 127.0.0.1:port'ta DİNLEYEN sürecin PID'i (`netstat -ano`); yoksa null. */
@@ -260,7 +265,7 @@ interface HealthInfo {
 
 const DEAD: HealthInfo = { alive: false, writable: false, toolCount: 0, unauthorized: false, gated: false, readsData: false, tools: [] };
 
-function probeHealth(port: number, timeoutMs = 2000): Promise<HealthInfo> {
+function probeHealth(port: number, timeoutMs = 2000, token: string = getAdtHttpToken()): Promise<HealthInfo> {
   return new Promise((resolve) => {
     const req = httpRequest(
       {
@@ -271,7 +276,7 @@ function probeHealth(port: number, timeoutMs = 2000): Promise<HealthInfo> {
         timeout: timeoutMs,
         // Yazan motor `/health`'i de kapının arkasında tutuyor; token'sız
         // yoklama ayakta bir sunucuyu ölü sanıp öldürüyordu (bkz. adtHttpToken.ts).
-        headers: { Authorization: `Bearer ${getAdtHttpToken()}` }
+        headers: { Authorization: `Bearer ${token}` }
       },
       (res) => {
         const status = res.statusCode ?? 0;
@@ -328,9 +333,10 @@ function probeHealth(port: number, timeoutMs = 2000): Promise<HealthInfo> {
  */
 export async function probeAdtTools(
   port: number,
-  timeoutMs = 1500
+  timeoutMs = 1500,
+  token?: string
 ): Promise<{ alive: boolean; unauthorized: boolean; tools: string[] }> {
-  const info = await probeHealth(port, timeoutMs);
+  const info = await probeHealth(port, timeoutMs, token);
   return { alive: info.alive, unauthorized: info.unauthorized, tools: info.tools };
 }
 
@@ -418,10 +424,14 @@ export function failureReason(tail: string, exited: boolean): AdtServerFailureRe
 }
 
 /** Son başarısız açılış: "Ajan bu sistemde" öbeği "neden" sorusunu buradan cevaplıyor. */
-let lastFailure: { reason: AdtServerFailureReason | string; message: string; at: number } | null = null;
+// Sistem (proje klasörü) başına: bir sistemin açılamaması ötekinin öbeğinde görünmesin.
+type FailureInfo = { reason: AdtServerFailureReason | string; message: string; at: number };
+const lastFailures = new Map<string, FailureInfo>();
+let lastFailure: FailureInfo | null = null;
 
-export function lastAdtServerFailure(): { reason: AdtServerFailureReason | string; message: string; at: number } | null {
-  return lastFailure;
+export function lastAdtServerFailure(projectDir?: string): FailureInfo | null {
+  if (projectDir === undefined) return lastFailure;
+  return lastFailures.get(projectDir) ?? null;
 }
 
 function describeFailure(server: RunningServer): { message: string; reason: AdtServerFailureReason } {
@@ -453,10 +463,19 @@ function describeFailure(server: RunningServer): { message: string; reason: AdtS
   return { message, reason };
 }
 
+function tokenOf(opts: ReadonlyServerStartOptions): string {
+  return opts.token || getAdtHttpToken();
+}
+
 export async function startReadonlyServer(opts: ReadonlyServerStartOptions): Promise<ReadonlyServerStartResult> {
   const result = await startReadonlyServerInner(opts);
-  if (!result.ok) lastFailure = { reason: (result.reason ?? "unknown") as AdtServerFailureReason | string, message: result.message, at: Date.now() };
-  else lastFailure = null;
+  if (!result.ok) {
+    lastFailure = { reason: (result.reason ?? "unknown") as AdtServerFailureReason | string, message: result.message, at: Date.now() };
+    lastFailures.set(opts.projectDir, lastFailure);
+  } else {
+    lastFailure = null;
+    lastFailures.delete(opts.projectDir);
+  }
   return result;
 }
 
@@ -464,7 +483,7 @@ async function startReadonlyServerInner(opts: ReadonlyServerStartOptions): Promi
   const key = opts.projectDir;
   const existing = running.get(key);
   if (existing && existing.port === opts.port && (existing.external || (!existing.proc?.killed && !existing.exited))) {
-    const info = await probeHealth(existing.port);
+    const info = await probeHealth(existing.port, 2000, tokenOf(opts));
     // Gated'da yüzey yetmez, oturum da tutmalı: process'in ortamındaki token
     // eski oturumunsa her yazması 401 → approval_unavailable olur.
     const sameGate = opts.gate ? existing.gateToken === opts.gate.token : existing.gateToken === null;
@@ -513,7 +532,7 @@ async function startReadonlyServerInner(opts: ReadonlyServerStartOptions): Promi
   // Gated modda HİÇ devralmıyoruz: devralınan process'in ortamındaki onay
   // token'ını bilemeyiz; ya ölü bir oturuma sorar (her yazma reddedilir) ya da
   // başka bir projenin oturumuna.
-  let onPort = await probeHealth(opts.port);
+  let onPort = await probeHealth(opts.port, 2000, tokenOf(opts));
   // Jetonumuzu bilmeyen (401) sunucu: önceki oturumdan arta kalan BİZİM
   // sunucumuz mu, jeton dışında kanıtla (staleOwnServer). Eskiden hiç
   // dokunulmuyordu ve uygulama çöktükten sonra hiçbir sisteme ADT
@@ -600,9 +619,13 @@ async function startReadonlyServerInner(opts: ReadonlyServerStartOptions): Promi
   // kural onu da kapsıyor (pythonSiteEnv.ts).
   const env: NodeJS.ProcessEnv = withNttPythonSite({
     ...process.env,
-    ABAP_HTTP_TOKEN: getAdtHttpToken(),
+    ABAP_HTTP_TOKEN: tokenOf(opts),
     ADT_CWD: opts.projectDir
   });
+  // Ajan sürecine verilen adres değişkenleri sunucunun işi değil; miras kalan
+  // değer başka bir sistemin portunu gösterebilir.
+  delete env.ABAP_HTTP_URL;
+  delete env.ABAP_HTTP_PORT;
   // Salt okunur sarmalayıcının veri okuma kapıları (adt_readonly_server.py
   // GATED). Kullanıcı kararı 2026-10-15: tablo ve dump okuma her kademede
   // açık — modül danışmanı read-only yüzeyde hatanın kaynağına bakamıyordu.
@@ -670,7 +693,7 @@ async function startReadonlyServerInner(opts: ReadonlyServerStartOptions): Promi
     if (server.exited) break;
     // "Ayakta" yetmez: başlattığımız process portu alamadıysa cevap veren
     // başka biri olabilir. Yüzey de tutmalı.
-    const info = await probeHealth(opts.port, 1200);
+    const info = await probeHealth(opts.port, 1200, tokenOf(opts));
     if (info.alive && surfaceMatches(info, opts)) {
       healthy = true;
       break;
