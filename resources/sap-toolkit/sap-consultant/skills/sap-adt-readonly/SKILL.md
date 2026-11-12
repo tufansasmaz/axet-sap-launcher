@@ -126,7 +126,10 @@ continue on suspenders alone.
 > inherited. It also opens `adt_dump_detail` (2026-10-16): `adt_dumps` only lists dumps, and
 > the `uri` it returns does not open directly — pass that `uri` to `adt_dump_detail` to read
 > the error analysis, the source extract and the include + line it terminated on, then open
-> that include with `adt_get_source` (upstream's `adt_dumps(dump=...)` reads the same chapters). `adt_spool_read`
+> that include with `adt_get_source`. Use `adt_dump_detail` first: upstream's `adt_dumps(dump=...)`
+> also returns chapters (pick others with `sections`, see `available`), but gives no structured
+> include + line and returns "Chosen variables" with no `GR_PII` approval — use it only for a
+> chapter `adt_dump_detail` leaves out, never for field values on QA/PRD. `adt_spool_read`
 > stays closed. That is the read-only tool set; `/health` lists it. Do not try to open or close
 > a gate yourself. On QA/PRD a sensitive table still answers `GR_PII`: ask the user, and
 > only an explicit "onay" from them goes into `approval_text` — never supply it yourself.

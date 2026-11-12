@@ -47,7 +47,9 @@ author: "Beyhan Meyrali <beyhan.meyrali@nttdata.com>"
 > vakaya ST22 dumpı ve ilgili tablolarla başla. **Dump'ın içi `adt_dump_detail` ile**
 > (2026-10-16): `adt_dumps`'ın verdiği `uri`'yi geç; hata analizi, kaynak alıntısı ve
 > hatanın düştüğü include + satır gelir, o include'u `adt_get_source` ile aç. Alan
-> değerleri (`include_variables=true`) QA/PRD'de aynı `GR_PII` onayını ister. QA/PRD'de kişisel veri taşıyan tablo
+> değerleri (`include_variables=true`) QA/PRD'de aynı `GR_PII` onayını ister.
+> Başka bir bölüm gerekirse `adt_dumps(dump=...)` (`sections`, `available` listesi) — ama
+> include + satırı yapısal vermez ve "Chosen variables"ı onay sormadan döndürür: QA/PRD'de `sections` ile alan değeri okuma. QA/PRD'de kişisel veri taşıyan tablo
 > `GR_PII` ile reddedilir; kullanıcıya hangi tabloyu neden okuyacağını söyle, açık "onay"
 > gelirse `acknowledge_risk=true` + onun cevabıyla (`approval_text`) tekrar dene — onayı
 > kendin verme. Bir araç yine de `404 unknown_tool` dönerse arıza gibi raporlama; o adımı
