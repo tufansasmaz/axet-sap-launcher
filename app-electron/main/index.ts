@@ -78,6 +78,7 @@ import { stopAllRfcBridges, stopRfcBridge } from "./rfcBridgeManager";
 import { stopAllReadonlyServers, stopReadonlyServer } from "./adtReadonlyServerManager";
 import { closeWriteSession, stopApprovalServer } from "./sapWrite/server";
 import { disconnectActiveSap } from "./sapDisconnect";
+import { createProcessErrorReporter } from "./processErrors";
 import { setApprovalCandidateProvider } from "./sapWrite/approvalEvents";
 import { createPaneApprovalRouter } from "./sapWrite/paneApprovals";
 import { registerSapWriteIpc } from "./sapWrite/ipc";
@@ -163,14 +164,19 @@ if (!gotSingleInstanceLock) {
 
 // Beklenmeyen hatalar sessizce process'i çökertip kullanıcıyı "uygulama
 // birden kapandı" durumunda bırakmasın — en azından bir hata penceresi
-// göster, log'a yaz.
-process.on("uncaughtException", (err) => {
-  console.error("uncaughtException", err);
-  dialog.showErrorBox(mt("app.unexpectedErrorTitle"), err.stack ?? String(err));
+// göster, log'a yaz. Eskiden yalnız konsola yazılıyordu (paketlenmiş
+// uygulamada görünmez) ve her hata bir modal açıyordu (bkz. processErrors.ts).
+const processErrors = createProcessErrorReporter({
+  log: (event, fields) => {
+    console.error(event, fields);
+    appLog(event, fields);
+  },
+  showDialog: (title, body) => dialog.showErrorBox(title, body),
+  dialogTitle: () => mt("app.unexpectedErrorTitle"),
+  now: () => Date.now()
 });
-process.on("unhandledRejection", (reason) => {
-  console.error("unhandledRejection", reason);
-});
+process.on("uncaughtException", (err) => processErrors.uncaught(err));
+process.on("unhandledRejection", (reason) => processErrors.rejection(reason));
 
 app.disableHardwareAcceleration();
 
