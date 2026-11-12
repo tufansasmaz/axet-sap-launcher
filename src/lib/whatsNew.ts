@@ -12,6 +12,27 @@ export interface WhatsNewEntry {
 
 export const WHATS_NEW_DATA: readonly WhatsNewEntry[] = [
   {
+    version: "1.9.5",
+    items: {
+      tr: [
+        "NTT becerileri güncel kite eşitlendi: yeni Fiori taslak ve geliştirme turu becerileri, daha fazla SAP aracı.",
+        "BAdI implementasyonu ve bakım ekranı üreteçleri eklendi: yalnız DEV'de, yalnız teknik danışman, her işlemde onay ve transport.",
+        "QA/PRD'de dump değişken değerleri kişisel veri onayı olmadan verilmiyor.",
+        "Bildirimlerde ve Görev Yöneticisi'nde uygulama adı artık \"NTT Studio\".",
+        "Uzun süre kullanılmayan sistemin sunucusu uyutuluyor (ayarlanabilir); Genel bellek ajan açılışına özetleniyor.",
+        "Sohbet ajan seçicisi yalnız ana ajan olabilenleri gösteriyor."
+      ],
+      en: [
+        "NTT skills synced with the latest kit: new Fiori mockup and developer walkthrough skills, more SAP tools.",
+        "BAdI implementation and maintenance view generators added: DEV only, technical consultant only, approval and transport for every action.",
+        "On QA/PRD, dump variable values are not returned without personal-data consent.",
+        "Notifications and Task Manager now show \"NTT Studio\" as the app name.",
+        "Servers of systems idle for a long time are put to sleep (configurable); General memory is summarised when agents start.",
+        "The chat agent picker only lists agents that can run as the main agent."
+      ]
+    }
+  },
+  {
     version: "1.9.4",
     items: {
       tr: [
