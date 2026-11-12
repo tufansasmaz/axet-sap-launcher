@@ -237,6 +237,16 @@ görebilirsin:
 - Bu etiketler sadece görsel bir hatırlatmadır; bağlantı davranışını
   değiştirmez.
 
+### Yorum / Not alanında şifre
+
+Sistem kartındaki **Yorum / Not** alanı düz metin saklanır. Notta şifreye
+benzeyen bir şey varsa — "şifre/parola/password/pwd: …" gibi bir satır ya da
+kullanıcı adı satırının hemen altındaki tek kelimelik satır — ekranda
+**maskeli** (••••) görünür; üstteki **Göster** ile açıp düzenleyebilir,
+**Gizle** ile yeniden maskeleyebilirsin. Not silinmez ya da değiştirilmez;
+böyle bir notu kaydedince "şifre içeriyor gibi" uyarısı çıkar. Şifreyi
+burada değil, bağlanma penceresinde (şifreli saklanır) tut.
+
 ## Sisteme Bağlanma (Kimlik Bilgileri)
 
 "axet.code'da Aç" dediğinde bir kimlik bilgisi penceresi açılır:
@@ -285,6 +295,16 @@ görebilirsin:
   Üçünde de çalışma klasörü bağlantının klasörüdür; `.conn_adt`,
   `sap-context.md` ve QA/PRD salt okunur kuralı sohbettekiyle aynıdır.
   Ayar "Her seferinde sor" ise düğme **Bağlan…** olur ve menüyü açar.
+
+### Bağlantıyı kesmek ve başka sisteme geçmek
+
+Başlık çubuğundaki bağlı sistem rozetinin **X**'i bağlantıyı gerçekten keser:
+o sistemin 8787'deki ADT sunucusu, varsa RFC köprüsü ve DEV onay oturumu
+kapanır; boş yeni sohbet taslağı da o sistemin klasöründen ayrılır. Başka bir
+sisteme bağlanınca öncekinin RFC köprüsü kendiliğinden kapanır (aynı anda tek
+aktif sistem). Aynı sisteme yeniden bağlanmak köprüyü yeni kimlik bilgileriyle
+yeniden başlatır. Bağlantı bildirimindeki skill sayısı, projeye kopyalananlarla
+birlikte genel klasördeki (`%LOCALAPPDATA%\axet-code\skills`) yetenekleri de sayar.
 
 ## Bağlandıktan Sonra Açılan Klasörde Ne Var
 
@@ -375,7 +395,25 @@ listesi ve bağlanılan sistemler var.
   hangi bağlantıdan doğduysa o grupta kalır.
 - **Sohbeti PDF olarak dışa aktarabilirsin.**
 - **Sohbetin yanında dosya paneli** açılır; ajanın dokunduğu dosyaları
-  anında görür, istersen müdahale edersin.
+  anında görür, istersen müdahale edersin. Panelin başlığındaki
+  **Klasörü Gezgin'de aç** düğmesi sohbetin klasörünü Windows Gezgini'nde açar.
+- **Sıradaki mesaj**: Ajan çalışırken yazdığın mesaj sıraya girer ve tur
+  bitince kendiliğinden gider. Sıra şeridindeki düğmelerle onu **kutuya geri
+  alıp düzenleyebilir**, **sıradan çıkarabilir** ya da **Şimdi gönder** ile
+  mevcut turu durdurup hemen gönderebilirsin (Durdur ile aynı yoldan kesilir;
+  yarım kalan araç çağrısı varsa ajan yeni oturumda kaldığı yerden sürer).
+- **İstek sınırı (429)**: Portal "429 Too many tokens / too many requests"
+  verip tur düşerse sohbet artan beklemeyle (10 sn, 30 sn, 90 sn) kendiliğinden
+  yeniden dener: ajan araç çalıştırdıysa kaldığı yerden devam eder, hiçbir şey
+  yapmadıysa aynı soruyu yeniden gönderir. Bekleme şeridindeki **X** denemeyi
+  iptal eder. Deneme sayısı ve açma/kapama Ajanlar'la ortak: Ayarlar >
+  Ajanlar > "Otomatik yeniden dene" / "En çok deneme". Sınıra sık takılıyorsan
+  büyük analizi parçalara böl (önce liste, sonra tek tek ayrıntı).
+- **Takılan tur**: Ajandan 5 dk hiçbir ilerleme gelmezse cevap göstergesinin
+  altında "takılmış olabilir" kartı çıkar: **Durdur** ya da **Durdur ve
+  yeniden dene**. 30 dk ilerlemesiz kalan tur kendiliğinden durdurulur ve
+  cevap "takıldı" notuyla kalır (yarım metin varsa **Devam et** ile sürer).
+  Soru kartı ve SAP onay beklemesi bu süreye girmez.
 - **Geçmiş her mesajda baştan gönderilmez.** Oturum kurulurken sohbetin son
   24 mesajı (en fazla 12.000 karakter) ajana bir kere aktarılır, sonrası
   yalnızca yazdığın mesajdır. Sohbet çok uzunsa en eski mesajlar düşer ve
@@ -855,6 +893,11 @@ Claude Code/Codex/Gemini'de terminalin son hata satırından tahmin edilir (≈)
   ekipçe kısa süre (20 sn'den başlayıp artan) bekler. Senin terminalde ya da
   Akış'tan yazdığın mesaj bu kapıya takılmaz.
 - **Lider görevinde takılma uyarısı** (varsayılan 10 dk; Kapalı/5/10/20/30).
+- **Takılmış görünen ajan**: Çalışıyor görünüp 20 dk hiçbir ilerleme
+  kaydetmeyen axet-code ajanının kartı kehribar renkte "N dk ilerleme yok —
+  takılmış olabilir" yazar ve yanında **yeniden başlat** düğmesi çıkar.
+  Durum yalnız kesin kaynaktan (axet-code veritabanı) okunduğunda gösterilir;
+  tahmini durumda (≈) söylenmez.
 
 ### Ajan yönetimi
 
@@ -1065,6 +1108,15 @@ panelinde **Git deposu başlat** düğmesi vardır.
   oluşturan ajanın terminalini öne getirir.
 - SAP nesnelerindeki değişiklikler burada değil, **SAP yazma geçmişi**
   panelindedir.
+
+### Dosyalar
+
+Görünüm rayındaki **Dosyalar** ekibin proje klasörünü (depo çipindeki
+klasör; yoksa genel çalışma klasörü) ağaç olarak gösterir. Dosyaya tıklayınca
+yanında **salt okunur** önizleme açılır (2 MB üstü kırpılır, ikili dosya
+açılmaz; Word/görsel/PDF önizlemesi Sohbet'teki panelle aynı). Ajanlar
+yazdıkça ağaç kendiliğinden tazelenir. Üstteki **Gezgin'de aç** klasörü
+Windows Gezgini'nde açar.
 
 ### Tarayıcı
 
@@ -1303,6 +1355,19 @@ açabilirsin. Pencere uygulamadaki tüm kısayolları listeler.
 
 ## Sık Sorulan Sorunlar
 
+- **Ayarlarım birden varsayılana döndü**: Ayar dosyası (config.json)
+  okunamazsa uygulama varsayılanlarla açılır ama bozuk dosyayı silmeden önce
+  aynı klasöre  olarak yedekler
+  (). Ayar dosyası artık yarıda kalmayacak
+  şekilde (önce geçici dosyaya) yazılıyor.
+- **RFC köprüsü "portu NTT Studio dışında bir süreç tutuyor"**: 8788'i
+  uygulamanın başlatmadığı bir süreç tutuyor (çoğunlukla önceki bir oturumdan
+  kalan köprü). O süreci kapat ya da bilgisayarı yeniden başlat, sonra yeniden
+  bağlan.
+- **Sohbete eklediğim dosyaya tıklayınca**: belge ve görseller (png, jpg,
+  pdf, docx, xlsx, md, txt…) proje klasörü dışında olsalar da varsayılan
+  uygulamayla açılır; çalıştırılabilir ya da tanınmayan dosyalar yalnızca
+  klasörde gösterilir.
 - **"Bu sisteme ağ üzerinden erişilemiyor"**: VPN bağlı değil veya sistem
   şu an kapalı/erişilemez olabilir.
 - **401 Unauthorized**: Kullanıcı adı/şifre yanlış veya hesap kilitli.
